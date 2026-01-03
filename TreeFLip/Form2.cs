@@ -47,6 +47,10 @@ namespace TreeGrowth
         // === OPTIMIZATION: Flat array instead of 2D for better cache locality ===
         private int[] _grid = null!;
         
+        // === NEW: Tree age tracking ===
+        private int[] _treeAge = null!; // Age in timesteps for each cell
+        private long _totalTreeAge = 0;  // Sum of all tree ages (for average calculation)
+        
         // === OPTIMIZATION: Pre-allocated pixel buffer (reused every frame) ===
         private byte[] _pixelBuffer = null!;
         
@@ -126,6 +130,9 @@ namespace TreeGrowth
             // === OPTIMIZATION: Flat 1D array for cache-friendly access ===
             _grid = new int[_gridHeight * _gridWidth];
             
+            // === NEW: Initialize age array ===
+            _treeAge = new int[_gridHeight * _gridWidth];
+            
             // === OPTIMIZATION: Pre-allocate pixel buffer (BGRA format) ===
             _pixelBuffer = new byte[_gridHeight * _gridWidth * 4];
             
@@ -164,6 +171,12 @@ namespace TreeGrowth
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void SetCell(int x, int y, int value) => _grid[y * _gridWidth + x] = value;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private int GetAge(int x, int y) => _treeAge[y * _gridWidth + x];
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void SetAge(int x, int y, int age) => _treeAge[y * _gridWidth + x] = age;
 
         // === EVENT HANDLERS ===
 
@@ -400,9 +413,11 @@ namespace TreeGrowth
 
             // === OPTIMIZATION: Use Array.Clear for bulk zeroing ===
             Array.Clear(_grid, 0, _grid.Length);
+            Array.Clear(_treeAge, 0, _treeAge.Length);
 
             _Ns = 0;
             _treeCount = 0;
+            _totalTreeAge = 0;
             _totalFires = 0;
             _isFireActive = false;
             _fireList.Clear();
@@ -440,6 +455,9 @@ namespace TreeGrowth
                 RunSimulationSteps();
             }
 
+            // Age all existing trees
+            AgeAllTrees();
+
             DrawGridOptimized();
             
             // Update UI less frequently to reduce overhead
@@ -455,6 +473,25 @@ namespace TreeGrowth
             _lastFrameTime = DateTime.Now;
         }
 
+        // === NEW: Age all trees by 1 timestep ===
+        private void AgeAllTrees()
+        {
+            _totalTreeAge += _treeCount; // Each tree ages by 1
+
+            // Optionally, update the actual age array (only if needed for rendering)
+            // For performance, we can skip this if we only need average age
+            // Uncomment below if you need individual ages:
+            /*
+            for (int i = 0; i < _grid.Length; i++)
+            {
+                if (_grid[i] == TREE)
+                {
+                    _treeAge[i]++;
+                }
+            }
+            */
+        }
+
         private void RunSimulationSteps()
         {
             for (int i = 0; i < _stepsPerFrame; i++)
@@ -465,6 +502,7 @@ namespace TreeGrowth
                 if (GetCell(xg, yg) == VACANT && _rng.NextDouble() < _p)
                 {
                     SetCell(xg, yg, TREE);
+                    SetAge(xg, yg, 0); // NEW: Initialize age to 0
                     _treeCount++;
                 }
 
@@ -492,6 +530,7 @@ namespace TreeGrowth
                 if (GetCell(xg, yg) == VACANT && _rng.NextDouble() < _p)
                 {
                     SetCell(xg, yg, TREE);
+                    SetAge(xg, yg, 0); // NEW: Initialize age to 0
                     _treeCount++;
                 }
 
@@ -503,6 +542,12 @@ namespace TreeGrowth
                 {
                     // Add to existing fire
                     SetCell(xf, yf, BURNING);
+                    
+                    // NEW: Subtract age when tree burns
+                    int age = GetAge(xf, yf);
+                    _totalTreeAge -= age;
+                    SetAge(xf, yf, 0);
+                    
                     _treeCount--;
                     _currentFireSize++;
                     _fireList.Add((xf, yf));
@@ -516,6 +561,12 @@ namespace TreeGrowth
         {
             _isFireActive = true;
             SetCell(x, y, BURNING);
+            
+            // NEW: Subtract age when tree burns
+            int age = GetAge(x, y);
+            _totalTreeAge -= age;
+            SetAge(x, y, 0);
+            
             _treeCount--;
             _currentFireSize = 1;
             _fireList.Add((x, y));
@@ -570,6 +621,12 @@ namespace TreeGrowth
             if ((uint)nx < _gridWidth && (uint)ny < _gridHeight && GetCell(nx, ny) == TREE)
             {
                 SetCell(nx, ny, BURNING);
+                
+                // NEW: Subtract age when tree burns
+                int age = GetAge(nx, ny);
+                _totalTreeAge -= age;
+                SetAge(nx, ny, 0);
+                
                 _treeCount--;
                 _currentFireSize++;
                 _nextFireList.Add((nx, ny));
@@ -863,9 +920,14 @@ namespace TreeGrowth
         {
             _nsLabel.Text = $"Timesteps: {_Ns:n0}";
             _treesLabel.Text = $"Trees: {_treeCount:n0}";
+            
             double density = (double)_treeCount / TotalSites * 100.0;
             _densityLabel.Text = $"Density: {density:0.00}%";
-            _firesLabel.Text = $"Fires: {_totalFires:n0}";
+            
+            // NEW: Calculate and display average tree age
+            double avgAge = _treeCount > 0 ? (double)_totalTreeAge / _treeCount : 0;
+            _firesLabel.Text = $"Fires: {_totalFires:n0} | Avg Age: {avgAge:0.0}";
+            
             _fpsActualLabel.Text = $"FPS: {_actualFps:0.0} (Draw:{_lastDrawMs}ms)";
             _gridInfoLabel.Text = $"Grid: {_gridWidth}×{_gridHeight}";
 
@@ -892,7 +954,8 @@ namespace TreeGrowth
         {
             string status = _isSimulating ? "▶ Running" : "⏸ Paused";
             double density = (double)_treeCount / TotalSites * 100.0;
-            Text = $"Forest Fire OPTIMIZED — {status} | {_gridWidth}×{_gridHeight} | Trees: {_treeCount:n0} ({density:0.0}%) | FPS: {_actualFps:0}";
+            double avgAge = _treeCount > 0 ? (double)_totalTreeAge / _treeCount : 0;
+            Text = $"Forest Fire OPTIMIZED — {status} | {_gridWidth}×{_gridHeight} | Trees: {_treeCount:n0} ({density:0.0}%) | Avg Age: {avgAge:0.0} | FPS: {_actualFps:0}";
         }
 
         private double CurrentFMax() => Math.Max(_p / 10.0, 1e-12);
