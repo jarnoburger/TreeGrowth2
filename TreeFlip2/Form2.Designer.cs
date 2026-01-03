@@ -67,6 +67,9 @@ namespace TreeGrowth
         private System.Windows.Forms.Panel _bloomPanel;
         private System.Windows.Forms.Label _bloomHeader;
 
+        // === NEW: NDI Control ===
+        private System.Windows.Forms.CheckBox _ndiCheckBox;
+
         // --- Stats Labels ---
         private System.Windows.Forms.Label _nsLabel;
         private System.Windows.Forms.Label _treesLabel;
@@ -80,20 +83,14 @@ namespace TreeGrowth
         private System.Windows.Forms.Label _visualHeader;
         private System.Windows.Forms.Label _statsHeader;
 
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing && (components != null))
-            {
-                components.Dispose();
-            }
-            if (disposing)
-            {
-                _bmp?.Dispose();
-                _timer?.Dispose();
-                _threadRng?.Dispose();  // NEW: Dispose ThreadLocal
-            }
-            base.Dispose(disposing);
-        }
+        // --- Control Panel ---
+        private System.Windows.Forms.Button _fullscreenBtn;
+        private System.Windows.Forms.Button _resetBtn;
+        private System.Windows.Forms.Button _startBtn;
+        private System.Windows.Forms.CheckBox _animateCheck;
+        private System.Windows.Forms.TextBox _seedBox;
+        private System.Windows.Forms.Label _seedLabel;
+        private System.Windows.Forms.Panel _controlPanel;
 
         #region Windows Form Designer generated code
 
@@ -250,6 +247,18 @@ namespace TreeGrowth
             _animateCheck.TabIndex = 2;
             _animateCheck.Text = "Animate Fires";
             _animateCheck.CheckedChanged += OnAnimateCheckChanged;
+            
+            // NEW: NDI Checkbox
+            _ndiCheckBox = new CheckBox();
+            _ndiCheckBox.AutoSize = true;
+            _ndiCheckBox.ForeColor = Color.White;
+            _ndiCheckBox.Location = new Point(180, 70);
+            _ndiCheckBox.Name = "_ndiCheckBox";
+            _ndiCheckBox.Size = new Size(160, 29);
+            _ndiCheckBox.TabIndex = 8;
+            _ndiCheckBox.Text = "📡 NDI Stream (Ctrl+N)";
+            _ndiCheckBox.CheckedChanged += OnNdiCheckChanged;
+            _controlPanel.Controls.Add(_ndiCheckBox);
             
             // _startBtn
             _startBtn.BackColor = Color.FromArgb(0, 120, 0);
@@ -919,13 +928,5 @@ namespace TreeGrowth
         }
 
         #endregion
-
-        private Button _fullscreenBtn;
-        private Button _resetBtn;
-        private Button _startBtn;
-        private CheckBox _animateCheck;
-        private TextBox _seedBox;
-        private Label _seedLabel;
-        private Panel _controlPanel;
     }
 }

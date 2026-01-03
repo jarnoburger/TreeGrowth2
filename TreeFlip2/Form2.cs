@@ -35,6 +35,11 @@ namespace TreeGrowth
         private int _logicalWidth => _outputWidth / _cellSize;
         private int _logicalHeight => _outputHeight / _cellSize;
         private int TotalLogicalCells => _logicalWidth * _logicalHeight;
+        
+        // Compatibility properties for existing code
+        private int _gridWidth => _outputWidth;
+        private int _gridHeight => _outputHeight;
+        private int TotalSites => TotalLogicalCells;
 
         // --- Reference grid for speed scaling ---
         private const int REFERENCE_GRID_SIZE = 512 * 512; // 262,144 cells
@@ -159,6 +164,7 @@ namespace TreeGrowth
         private long _Ns = 0;
         private int _treeCount = 0;
         private long _totalFires = 0;
+        private long _totalTreeAge = 0; // For compatibility with existing code
 
         private List<(int x, int y)> _fireList = new();
         private List<(int x, int y)> _nextFireList = new();
@@ -191,6 +197,11 @@ namespace TreeGrowth
         private readonly ParallelOptions _parallelOptions;
         private XorShift128Plus _rng;
 
+        // === NDI Streaming ===
+        private NdiSender? _ndiSender;
+        private bool _ndiEnabled = false;
+        private readonly string _ndiSourceName = "Forest Fire Simulation";
+
         public Form2()
         {
             _parallelOptions = new ParallelOptions
@@ -200,7 +211,7 @@ namespace TreeGrowth
 
             InitializeComponent();
 
-            // === Initialize ComboBoxes with default values ===
+            // === Initialize ComboBoxes with default values ===    
             // Note: _isInitializing = true prevents event handlers from triggering during this
             _neighborhoodCombo.SelectedIndex = 0;  // 8 Neighbors
             _gridSizeCombo.SelectedIndex = 0;      // 1920×1080 HD
@@ -292,6 +303,19 @@ namespace TreeGrowth
         private void SetCell(int x, int y, int value) => _grid[y * _logicalWidth + x] = value;
 
         // ============================================================
+        // === HELPER METHODS ===
+        // ============================================================
+
+        private double CurrentFMax() => Math.Max(_p / 10.0, 1e-12);
+
+        private static double TrackBarToF(int v, double fMax)
+        {
+            double t = v / 100000.0;
+            double curved = t * t * t;
+            return curved * fMax;
+        }
+
+        // ============================================================
         // === EVENT HANDLERS ===
         // ============================================================
 
@@ -307,13 +331,18 @@ namespace TreeGrowth
                 ToggleFullscreen();
                 e.Handled = true;
             }
-            else if (e.KeyCode == Keys.S && !_seedBox.Focused)
+            else if (e.KeyCode == Keys.N && e.Control)
+            {
+                // Ctrl+N: Toggle NDI
+                ToggleNDI();
+                e.Handled = true;
+            }
+            else if (e.KeyCode == Keys.S && !_seedBox.Focused && !e.Control)
             {
                 _showStats = !_showStats;
                 _statsPanel.Visible = _showStats;
                 _parametersPanel.Visible = _showStats;
                 _visualPanel.Visible = _showStats;
-                _bloomPanel.Visible = _showStats;  // NEW: Toggle bloom panel with S key
                 e.Handled = true;
             }
             else if (e.KeyCode == Keys.Space)
@@ -604,10 +633,11 @@ namespace TreeGrowth
             _Ns = 0;
             _treeCount = 0;
             _totalFires = 0;
+            _totalTreeAge = 0;
             _isFireActive = false;
             _fireList.Clear();
             _nextFireList.Clear();
-            _burningCells.Clear();
+            _burningCells.Clear();  
             _currentFireSize = 0;
             _fireStats.Clear();
             _frameCounter = 0;
@@ -954,6 +984,19 @@ namespace TreeGrowth
                 _lastBloomMs = bloomSw.ElapsedMilliseconds;
             }
 
+            // === Send NDI frame if enabled ===
+            if (_ndiEnabled && _ndiSender != null)
+            {
+                try
+                {
+                    _ndiSender.SendFrame(_enableBloom ? _blurBuffer : buffer, outputW, outputH);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"NDI send error: {ex.Message}");
+                }
+            }
+
             // Copy buffer to bitmap
             var rect = new Rectangle(0, 0, outputW, outputH);
             BitmapData bd = _bmp.LockBits(rect, ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
@@ -1113,70 +1156,142 @@ namespace TreeGrowth
         {
             string status = _isSimulating ? "▶ Running" : "⏸ Paused";
             double density = (double)_treeCount / TotalLogicalCells * 100.0;
-            string bloom = _enableBloom ? " | BLOOM" : "";
-            Text = $"Forest Fire — {status} | {_logicalWidth}×{_logicalHeight} @{_cellSize}px | Trees: {_treeCount:n0} ({density:0.0}%) | FPS: {_actualFps:0}{bloom}";
+            string ndiStatus = _ndiEnabled ? " | 📡 NDI" : "";
+            Text = $"Forest Fire OPTIMIZED — {status} | {_outputWidth}×{_outputHeight} | Trees: {_treeCount:n0} ({density:0.0}%) | FPS: {_actualFps:0}{ndiStatus}";
         }
 
-        private double CurrentFMax() => Math.Max(_p / 10.0, 1e-12);
+        // === NDI Methods ===
 
-        private static double TrackBarToF(int v, double fMax)
+        private void InitializeNDI()
         {
-            double t = v / 100000.0;
-            double curved = t * t * t;
-            return curved * fMax;
-        }
-    }
-
-    /// <summary>
-    /// Fast seedable RNG (xorshift128+).
-    /// </summary>
-    internal struct XorShift128Plus
-    {
-        private ulong _s0, _s1;
-
-        public static XorShift128Plus FromString(string seed)
-        {
-            if (string.IsNullOrWhiteSpace(seed)) seed = "default";
-            ulong h1 = 1469598103934665603UL;
-            ulong h2 = 1099511628211UL;
-
-            foreach (char c in seed)
+            try
             {
-                h1 ^= c;
-                h1 *= 1099511628211UL;
-                h2 += (ulong)c * 0x9E3779B97F4A7C15UL;
-                h2 ^= (h2 >> 27);
+                _ndiSender?.Dispose();
+                _ndiSender = new NdiSender(_ndiSourceName, _outputWidth, _outputHeight);
+                _ndiEnabled = true;
+                
+                if (_ndiCheckBox != null)
+                {
+                    _ndiCheckBox.Checked = true;
+                }
+                
+                UpdateFormTitle();
+                System.Diagnostics.Debug.WriteLine($"✓ NDI initialized: {_ndiSourceName}");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    ex.Message,
+                    "NDI Initialization Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning
+                );
+                _ndiEnabled = false;
+                
+                if (_ndiCheckBox != null)
+                {
+                    _ndiCheckBox.Checked = false;
+                }
+            }
+        }
+
+        private void ShutdownNDI()
+        {
+            _ndiSender?.Dispose();
+            _ndiSender = null;
+            _ndiEnabled = false;
+            
+            if (_ndiCheckBox != null)
+            {
+                _ndiCheckBox.Checked = false;
+            }
+            
+            UpdateFormTitle();
+            System.Diagnostics.Debug.WriteLine("✓ NDI shut down");
+        }
+
+        private void ToggleNDI()
+        {
+            if (_ndiEnabled)
+                ShutdownNDI();
+            else
+                InitializeNDI();
+        }
+
+        private void OnNdiCheckChanged(object? sender, EventArgs e)
+        {
+            if (_ndiCheckBox.Checked && !_ndiEnabled)
+            {
+                InitializeNDI();
+            }
+            else if (!_ndiCheckBox.Checked && _ndiEnabled)
+            {
+                ShutdownNDI();
+            }
+        }
+
+        // Update or add Dispose method:
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _bmp?.Dispose();
+                _timer?.Dispose();
+                _ndiSender?.Dispose();  // Clean up NDI
+                _threadRng?.Dispose();
+            }
+            base.Dispose(disposing);
+        }
+
+        // === XorShift128Plus RNG ===
+        internal struct XorShift128Plus
+        {
+            private ulong _s0, _s1;
+
+            public static XorShift128Plus FromString(string seed)
+            {
+                if (string.IsNullOrWhiteSpace(seed)) seed = "default";
+                ulong h1 = 1469598103934665603UL;
+                ulong h2 = 1099511628211UL;
+
+                foreach (char c in seed)
+                {
+                    h1 ^= c;
+                    h1 *= 1099511628211UL;
+                    h2 += (ulong)c * 0x9E3779B97F4A7C15UL;
+                    h2 ^= (h2 >> 27);
+                }
+
+                if (h1 == 0 && h2 == 0) h1 = 1;
+
+                return new XorShift128Plus { _s0 = h1, _s1 = h2 };
             }
 
-            if (h1 == 0 && h2 == 0) h1 = 1;
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public ulong NextU64()
+            {
+                ulong x = _s0;
+                ulong y = _s1;
+                _s0 = y;
+                x ^= x << 23;
+                x ^= x >> 17;
+                x ^= y ^ (y >> 26);
+                _s1 = x;
+                return _s0 + _s1;
+            }
 
-            return new XorShift128Plus { _s0 = h1, _s1 = h2 };
-        }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public double NextDouble()
+            {
+                return (NextU64() >> 11) * (1.0 / (1UL << 53));
+            }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ulong NextU64()
-        {
-            ulong x = _s0;
-            ulong y = _s1;
-            _s0 = y;
-            x ^= x << 23;
-            x ^= x >> 17;
-            x ^= y ^ (y >> 26);
-            _s1 = x;
-            return _s0 + _s1;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public double NextDouble()
-        {
-            return (NextU64() >> 11) * (1.0 / (1UL << 53));
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public int NextInt(int maxExclusive)
-        {
-            if (maxExclusive <= 1) return 0;
-            return (int)(NextU64() % (uint)maxExclusive);
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public int NextInt(int maxExclusive)
+            {
+                if (maxExclusive <= 1) return 0;
+                return (int)(NextU64() % (uint)maxExclusive);
+            }
         }
     }
 }
