@@ -35,6 +35,7 @@ namespace TreeGrowth
         private int _burnDecayFrames = 15;
         private int _fireAnimationSpeed = 1;
         private bool _useMooreNeighborhood = true;
+        private int _treeSize = 1; // NEW: Tree size in pixels (1-50)
 
         // --- Colors (now configurable) ---
         private Color _colorTree = ColorTranslator.FromHtml("#c6a491");
@@ -306,6 +307,13 @@ namespace TreeGrowth
         {
             _fireFlickerRange = _flickerBar.Value;
             _flickerLabel.Text = $"Fire Flicker Range: {_fireFlickerRange}";
+        }
+
+        // NEW: Tree size handler
+        private void OnTreeSizeScroll(object sender, EventArgs e)
+        {
+            _treeSize = _treeSizeBar.Value;
+            _treeSizeLabel.Text = $"Tree Size: {_treeSize}px";
         }
 
         private void OnNeighborhoodChanged(object sender, EventArgs e)
@@ -656,7 +664,7 @@ namespace TreeGrowth
         }
 
         // ============================================================
-        // === OPTIMIZATION #2: Parallel Rendering ===
+        // === OPTIMIZATION #2: Parallel Rendering with Circle Drawing ===
         // ============================================================
         private unsafe void DrawGridOptimized()
         {
@@ -685,22 +693,103 @@ namespace TreeGrowth
             byte burnB = _colorBurnout.B;
             int flickerRange = _fireFlickerRange;
             int burnDecay = _burnDecayFrames;
+            int treeSize = _treeSize;
 
-            // === Process rows in parallel ===
+            // Clear buffer with vacant color
+            uint vacantColor = colorVacantBgra;
             Parallel.For(0, height, _parallelOptions, y =>
             {
-                // Get thread-local RNG for fire flicker
-                var localRng = _threadRng.Value;
-                
-                int rowStartGrid = y * width;
-                int rowStartBuffer = y * width * 4;
-
+                int rowStart = y * width * 4;
                 for (int x = 0; x < width; x++)
                 {
-                    int state = grid[rowStartGrid + x];
-                    int bufferIdx = rowStartBuffer + x * 4;
-                    byte r, g, b;
+                    int idx = rowStart + x * 4;
+                    buffer[idx + 0] = (byte)(vacantColor);
+                    buffer[idx + 1] = (byte)(vacantColor >> 8);
+                    buffer[idx + 2] = (byte)(vacantColor >> 16);
+                    buffer[idx + 3] = 255;
+                }
+            });
 
+            // Draw trees, fires, and burning cells as circles
+            if (treeSize == 1)
+            {
+                // Optimized path for single pixel (original behavior)
+                Parallel.For(0, height, _parallelOptions, y =>
+                {
+                    var localRng = _threadRng.Value;
+                    int rowStartGrid = y * width;
+                    int rowStartBuffer = y * width * 4;
+
+                    for (int x = 0; x < width; x++)
+                    {
+                        int state = grid[rowStartGrid + x];
+                        if (state == VACANT) continue;
+
+                        int bufferIdx = rowStartBuffer + x * 4;
+                        byte r, g, b;
+
+                        if (state == BURNING)
+                        {
+                            r = fireR;
+                            g = (byte)Math.Min(255, fireG + (flickerRange > 0 ? localRng.NextInt(flickerRange) : 0));
+                            b = fireB;
+                        }
+                        else if (state <= RECENTLY_BURNED_STATE)
+                        {
+                            double decayProgress = (state - RECENTLY_BURNED_STATE + 1) / (double)burnDecay;
+                            double intensity = 1.0 - decayProgress;
+                            r = (byte)(burnR * intensity);
+                            g = (byte)(burnG * intensity);
+                            b = (byte)(burnB * intensity);
+                        }
+                        else if (state == TREE)
+                        {
+                            buffer[bufferIdx + 0] = (byte)(colorTreeBgra);
+                            buffer[bufferIdx + 1] = (byte)(colorTreeBgra >> 8);
+                            buffer[bufferIdx + 2] = (byte)(colorTreeBgra >> 16);
+                            buffer[bufferIdx + 3] = 255;
+                            continue;
+                        }
+                        else
+                        {
+                            continue;
+                        }
+
+                        buffer[bufferIdx + 0] = b;
+                        buffer[bufferIdx + 1] = g;
+                        buffer[bufferIdx + 2] = r;
+                        buffer[bufferIdx + 3] = 255;
+                    }
+                });
+            }
+            else
+            {
+                // Draw circles for tree size > 1
+                var treeCells = new List<(int x, int y, int state)>();
+                
+                // Collect all non-vacant cells
+                for (int y = 0; y < height; y++)
+                {
+                    for (int x = 0; x < width; x++)
+                    {
+                        int state = grid[y * width + x];
+                        if (state != VACANT)
+                        {
+                            treeCells.Add((x, y, state));
+                        }
+                    }
+                }
+
+                // Draw circles in parallel
+                Parallel.ForEach(treeCells, _parallelOptions, cell =>
+                {
+                    var localRng = _threadRng.Value;
+                    int cx = cell.x;
+                    int cy = cell.y;
+                    int state = cell.state;
+                    
+                    byte r, g, b;
+                    
                     if (state == BURNING)
                     {
                         r = fireR;
@@ -715,30 +804,17 @@ namespace TreeGrowth
                         g = (byte)(burnG * intensity);
                         b = (byte)(burnB * intensity);
                     }
-                    else if (state == TREE)
+                    else // TREE
                     {
-                        // Direct uint32 write for static colors
-                        buffer[bufferIdx + 0] = (byte)(colorTreeBgra);
-                        buffer[bufferIdx + 1] = (byte)(colorTreeBgra >> 8);
-                        buffer[bufferIdx + 2] = (byte)(colorTreeBgra >> 16);
-                        buffer[bufferIdx + 3] = 255;
-                        continue;
-                    }
-                    else // VACANT
-                    {
-                        buffer[bufferIdx + 0] = (byte)(colorVacantBgra);
-                        buffer[bufferIdx + 1] = (byte)(colorVacantBgra >> 8);
-                        buffer[bufferIdx + 2] = (byte)(colorVacantBgra >> 16);
-                        buffer[bufferIdx + 3] = 255;
-                        continue;
+                        r = _colorTree.R;
+                        g = _colorTree.G;
+                        b = _colorTree.B;
                     }
 
-                    buffer[bufferIdx + 0] = b;
-                    buffer[bufferIdx + 1] = g;
-                    buffer[bufferIdx + 2] = r;
-                    buffer[bufferIdx + 3] = 255;
-                }
-            });
+                    // Draw filled circle using midpoint circle algorithm
+                    DrawFilledCircle(buffer, width, height, cx, cy, treeSize / 2, r, g, b);
+                });
+            }
 
             // Copy buffer to bitmap
             var rect = new Rectangle(0, 0, width, height);
@@ -749,6 +825,33 @@ namespace TreeGrowth
             _picture.Image = _bmp;
 
             _lastDrawMs = sw.ElapsedMilliseconds;
+        }
+
+        // Helper method to draw filled circle
+        private void DrawFilledCircle(byte[] buffer, int width, int height, int cx, int cy, int radius, byte r, byte g, byte b)
+        {
+            int radiusSquared = radius * radius;
+            
+            for (int dy = -radius; dy <= radius; dy++)
+            {
+                for (int dx = -radius; dx <= radius; dx++)
+                {
+                    if (dx * dx + dy * dy <= radiusSquared)
+                    {
+                        int px = cx + dx;
+                        int py = cy + dy;
+                        
+                        if (px >= 0 && px < width && py >= 0 && py < height)
+                        {
+                            int idx = (py * width + px) * 4;
+                            buffer[idx + 0] = b;
+                            buffer[idx + 1] = g;
+                            buffer[idx + 2] = r;
+                            buffer[idx + 3] = 255;
+                        }
+                    }
+                }
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

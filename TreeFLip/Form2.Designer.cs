@@ -31,10 +31,12 @@ namespace TreeGrowth
         private System.Windows.Forms.TrackBar _fireSpeedBar;
         private System.Windows.Forms.TrackBar _fpsBar;
         private System.Windows.Forms.TrackBar _flickerBar;
+        private System.Windows.Forms.TrackBar _treeSizeBar;  // NEW: Tree size slider
         private System.Windows.Forms.Label _burnDecayLabel;
         private System.Windows.Forms.Label _fireSpeedLabel;
         private System.Windows.Forms.Label _fpsLabel;
         private System.Windows.Forms.Label _flickerLabel;
+        private System.Windows.Forms.Label _treeSizeLabel;  // NEW: Tree size label
 
         // --- Color Buttons (NEW) ---
         private System.Windows.Forms.Button _treeColorBtn;
@@ -113,6 +115,8 @@ namespace TreeGrowth
             _fpsLabel = new Label();
             _flickerBar = new TrackBar();
             _flickerLabel = new Label();
+            _treeSizeBar = new TrackBar();
+            _treeSizeLabel = new Label();
             _colorsLabel = new Label();
             _treeColorBtn = new Button();
             _vacantColorBtn = new Button();
@@ -139,6 +143,7 @@ namespace TreeGrowth
             ((System.ComponentModel.ISupportInitialize)_fireSpeedBar).BeginInit();
             ((System.ComponentModel.ISupportInitialize)_fpsBar).BeginInit();
             ((System.ComponentModel.ISupportInitialize)_flickerBar).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)_treeSizeBar).BeginInit();
             _controlPanel.SuspendLayout();
             SuspendLayout();
             // 
@@ -405,6 +410,8 @@ namespace TreeGrowth
             _visualPanel.Controls.Add(_fpsLabel);
             _visualPanel.Controls.Add(_flickerBar);
             _visualPanel.Controls.Add(_flickerLabel);
+            _visualPanel.Controls.Add(_treeSizeBar);
+            _visualPanel.Controls.Add(_treeSizeLabel);
             _visualPanel.Controls.Add(_colorsLabel);
             _visualPanel.Controls.Add(_treeColorBtn);
             _visualPanel.Controls.Add(_vacantColorBtn);
@@ -436,7 +443,7 @@ namespace TreeGrowth
             _burnDecayBar.Maximum = 60;
             _burnDecayBar.Minimum = 1;
             _burnDecayBar.Name = "_burnDecayBar";
-            _burnDecayBar.Size = new Size(120, 69);
+            _burnDecayBar.Size = new Size(95, 69);
             _burnDecayBar.TabIndex = 1;
             _burnDecayBar.TickFrequency = 10;
             _burnDecayBar.Value = 15;
@@ -445,22 +452,22 @@ namespace TreeGrowth
             // _burnDecayLabel
             // 
             _burnDecayLabel.AutoSize = true;
-            _burnDecayLabel.Font = new Font("Segoe UI", 8F);
+            _burnDecayLabel.Font = new Font("Segoe UI", 7F);
             _burnDecayLabel.ForeColor = Color.White;
-            _burnDecayLabel.Location = new Point(17, 98);
+            _burnDecayLabel.Location = new Point(11, 98);
             _burnDecayLabel.Name = "_burnDecayLabel";
-            _burnDecayLabel.Size = new Size(114, 21);
+            _burnDecayLabel.Size = new Size(69, 19);
             _burnDecayLabel.TabIndex = 2;
-            _burnDecayLabel.Text = "Burn Decay: 15";
+            _burnDecayLabel.Text = "Decay: 15";
             // 
             // _fireSpeedBar
             // 
             _fireSpeedBar.BackColor = Color.FromArgb(35, 35, 35);
-            _fireSpeedBar.Location = new Point(143, 33);
+            _fireSpeedBar.Location = new Point(112, 33);
             _fireSpeedBar.Maximum = 20;
             _fireSpeedBar.Minimum = 1;
             _fireSpeedBar.Name = "_fireSpeedBar";
-            _fireSpeedBar.Size = new Size(120, 69);
+            _fireSpeedBar.Size = new Size(95, 69);
             _fireSpeedBar.TabIndex = 3;
             _fireSpeedBar.TickFrequency = 5;
             _fireSpeedBar.Value = 1;
@@ -469,22 +476,22 @@ namespace TreeGrowth
             // _fireSpeedLabel
             // 
             _fireSpeedLabel.AutoSize = true;
-            _fireSpeedLabel.Font = new Font("Segoe UI", 8F);
+            _fireSpeedLabel.Font = new Font("Segoe UI", 7F);
             _fireSpeedLabel.ForeColor = Color.White;
-            _fireSpeedLabel.Location = new Point(147, 98);
+            _fireSpeedLabel.Location = new Point(112, 98);
             _fireSpeedLabel.Name = "_fireSpeedLabel";
-            _fireSpeedLabel.Size = new Size(99, 21);
+            _fireSpeedLabel.Size = new Size(87, 19);
             _fireSpeedLabel.TabIndex = 4;
             _fireSpeedLabel.Text = "Fire Speed: 1";
             // 
             // _fpsBar
             // 
             _fpsBar.BackColor = Color.FromArgb(35, 35, 35);
-            _fpsBar.Location = new Point(277, 33);
+            _fpsBar.Location = new Point(213, 33);
             _fpsBar.Maximum = 120;
             _fpsBar.Minimum = 10;
             _fpsBar.Name = "_fpsBar";
-            _fpsBar.Size = new Size(120, 69);
+            _fpsBar.Size = new Size(95, 69);
             _fpsBar.TabIndex = 5;
             _fpsBar.TickFrequency = 20;
             _fpsBar.Value = 60;
@@ -493,21 +500,21 @@ namespace TreeGrowth
             // _fpsLabel
             // 
             _fpsLabel.AutoSize = true;
-            _fpsLabel.Font = new Font("Segoe UI", 8F);
+            _fpsLabel.Font = new Font("Segoe UI", 7F);
             _fpsLabel.ForeColor = Color.White;
-            _fpsLabel.Location = new Point(277, 98);
+            _fpsLabel.Location = new Point(213, 98);
             _fpsLabel.Name = "_fpsLabel";
-            _fpsLabel.Size = new Size(107, 21);
+            _fpsLabel.Size = new Size(95, 19);
             _fpsLabel.TabIndex = 6;
             _fpsLabel.Text = "Target FPS: 60";
             // 
             // _flickerBar
             // 
             _flickerBar.BackColor = Color.FromArgb(35, 35, 35);
-            _flickerBar.Location = new Point(407, 33);
+            _flickerBar.Location = new Point(314, 33);
             _flickerBar.Maximum = 200;
             _flickerBar.Name = "_flickerBar";
-            _flickerBar.Size = new Size(120, 69);
+            _flickerBar.Size = new Size(95, 69);
             _flickerBar.TabIndex = 7;
             _flickerBar.TickFrequency = 50;
             _flickerBar.Value = 105;
@@ -516,13 +523,37 @@ namespace TreeGrowth
             // _flickerLabel
             // 
             _flickerLabel.AutoSize = true;
-            _flickerLabel.Font = new Font("Segoe UI", 8F);
+            _flickerLabel.Font = new Font("Segoe UI", 7F);
             _flickerLabel.ForeColor = Color.White;
-            _flickerLabel.Location = new Point(407, 106);
+            _flickerLabel.Location = new Point(314, 98);
             _flickerLabel.Name = "_flickerLabel";
-            _flickerLabel.Size = new Size(89, 21);
+            _flickerLabel.Size = new Size(78, 19);
             _flickerLabel.TabIndex = 8;
             _flickerLabel.Text = "Flicker: 105";
+            // 
+            // _treeSizeBar
+            // 
+            _treeSizeBar.BackColor = Color.FromArgb(35, 35, 35);
+            _treeSizeBar.Location = new Point(415, 33);
+            _treeSizeBar.Maximum = 20;
+            _treeSizeBar.Minimum = 1;
+            _treeSizeBar.Name = "_treeSizeBar";
+            _treeSizeBar.Size = new Size(95, 69);
+            _treeSizeBar.TabIndex = 9;
+            _treeSizeBar.TickFrequency = 10;
+            _treeSizeBar.Value = 20;
+            _treeSizeBar.Scroll += OnTreeSizeScroll;
+            // 
+            // _treeSizeLabel
+            // 
+            _treeSizeLabel.AutoSize = true;
+            _treeSizeLabel.Font = new Font("Segoe UI", 7F);
+            _treeSizeLabel.ForeColor = Color.White;
+            _treeSizeLabel.Location = new Point(415, 98);
+            _treeSizeLabel.Name = "_treeSizeLabel";
+            _treeSizeLabel.Size = new Size(84, 19);
+            _treeSizeLabel.TabIndex = 10;
+            _treeSizeLabel.Text = "Tree Size: 20";
             // 
             // _colorsLabel
             // 
@@ -730,6 +761,7 @@ namespace TreeGrowth
             ((System.ComponentModel.ISupportInitialize)_fireSpeedBar).EndInit();
             ((System.ComponentModel.ISupportInitialize)_fpsBar).EndInit();
             ((System.ComponentModel.ISupportInitialize)_flickerBar).EndInit();
+            ((System.ComponentModel.ISupportInitialize)_treeSizeBar).EndInit();
             _controlPanel.ResumeLayout(false);
             _controlPanel.PerformLayout();
             ResumeLayout(false);
