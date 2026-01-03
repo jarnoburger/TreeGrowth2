@@ -24,6 +24,13 @@ namespace TreeGrowth
         public bool AnimateFires { get; set; } = true;
         public bool UseMooreNeighborhood { get; set; } = true;
 
+        // Perlin Noise Distribution
+        public bool UsePerlinDistribution { get; set; } = false;
+        public double NoiseScale { get; set; } = 50.0;
+        public int NoiseOctaves { get; set; } = 4;
+        public double NoiseThreshold { get; set; } = 0.3;
+        public double NoiseStrength { get; set; } = 1.0;
+
         // Visual Parameters
         public int BurnDecayFrames { get; set; } = 15;
         public int FireAnimationSpeed { get; set; } = 1;

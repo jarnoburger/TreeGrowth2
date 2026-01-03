@@ -108,6 +108,13 @@ namespace TreeGrowth
                 AnimateFires = _simulation.AnimateFires,
                 UseMooreNeighborhood = _simulation.UseMooreNeighborhood,
 
+                // Perlin Noise Distribution
+                UsePerlinDistribution = _simulation.UsePerlinDistribution,
+                NoiseScale = _simulation.NoiseScale,
+                NoiseOctaves = _simulation.NoiseOctaves,
+                NoiseThreshold = _simulation.NoiseThreshold,
+                NoiseStrength = _simulation.NoiseStrength,
+
                 // Visual Parameters
                 BurnDecayFrames = _simulation.BurnDecayFrames,
                 FireAnimationSpeed = _simulation.FireAnimationSpeed,
@@ -157,6 +164,13 @@ namespace TreeGrowth
             _simulation.AnimateFires = settings.AnimateFires;
             _simulation.BaseStepsPerFrame = settings.BaseStepsPerFrame;
 
+            // Apply Perlin noise settings
+            _simulation.UsePerlinDistribution = settings.UsePerlinDistribution;
+            _simulation.NoiseScale = settings.NoiseScale;
+            _simulation.NoiseOctaves = settings.NoiseOctaves;
+            _simulation.NoiseThreshold = settings.NoiseThreshold;
+            _simulation.NoiseStrength = settings.NoiseStrength;
+
             // Initialize renderer
             _renderer = new ForestFireRenderer(_outputWidth, _outputHeight, _cellSize, Environment.ProcessorCount);
             _renderer.ColorTree = settings.ColorTree;
@@ -197,12 +211,21 @@ namespace TreeGrowth
             _bloomIntensityBar.Value = (int)(settings.BloomIntensity * 100);
             _bloomFireOnlyCheck.Checked = settings.BloomFireOnly;
 
+            // Update Perlin noise controls
+            _perlinCheck.Checked = settings.UsePerlinDistribution;
+            _noiseScaleBar.Value = (int)settings.NoiseScale;
+            _noiseOctavesBar.Value = settings.NoiseOctaves;
+            _noiseThresholdBar.Value = (int)(settings.NoiseThreshold * 100);
+            _noiseStrengthBar.Value = (int)(settings.NoiseStrength * 100);
+
             // Update color buttons
             _treeColorBtn.BackColor = settings.ColorTree;
             _vacantColorBtn.BackColor = settings.ColorVacant;
             _fireColorBtn.BackColor = settings.ColorFireBase;
             _burnoutColorBtn.BackColor = settings.ColorBurnout;
             _picture.BackColor = settings.ColorVacant;
+
+            _isInitializing = false;
         }
 
         /// <summary>
@@ -637,6 +660,7 @@ namespace TreeGrowth
                 _visualPanel.Visible = false;
                 _controlPanel.Visible = false;
                 _bloomPanel.Visible = false;
+                _perlinPanel.Visible = false;
             }
             else
             {
@@ -648,6 +672,7 @@ namespace TreeGrowth
                 _visualPanel.Visible = _showStats;
                 _controlPanel.Visible = true;
                 _bloomPanel.Visible = _showStats;
+                _perlinPanel.Visible = _showStats;
             }
 
             _fullscreenBtn.Text = _isFullscreen ? "Exit Fullscreen (F11)" : "Fullscreen (F11)";
@@ -867,6 +892,55 @@ namespace TreeGrowth
         private void OnBloomFireOnlyChanged(object sender, EventArgs e)
         {
             _renderer.BloomFireOnly = _bloomFireOnlyCheck.Checked;
+        }
+
+        // ============================================================
+        // === PERLIN NOISE EVENT HANDLERS ===
+        // ============================================================
+
+        private void OnPerlinCheckChanged(object sender, EventArgs e)
+        {
+            if (_isInitializing) return;
+            
+            _simulation.UsePerlinDistribution = _perlinCheck.Checked;
+            
+            // Enable/disable noise parameter controls
+            _noiseScaleBar.Enabled = _perlinCheck.Checked;
+            _noiseOctavesBar.Enabled = _perlinCheck.Checked;
+            _noiseThresholdBar.Enabled = _perlinCheck.Checked;
+            _noiseStrengthBar.Enabled = _perlinCheck.Checked;
+            
+            // Update label colors
+            var color = _perlinCheck.Checked ? Color.White : Color.FromArgb(180, 180, 180);
+            _noiseScaleLabel.ForeColor = color;
+            _noiseOctavesLabel.ForeColor = color;
+            _noiseThresholdLabel.ForeColor = color;
+            _noiseStrengthLabel.ForeColor = color;
+        }
+
+        private void OnNoiseScaleScroll(object sender, EventArgs e)
+        {
+            _simulation.NoiseScale = _noiseScaleBar.Value;
+            double multiplier = _simulation.NoiseScale / 50.0;
+            _noiseScaleLabel.Text = $"Scale: {_noiseScaleBar.Value} ({multiplier:0.0}×)";
+        }
+
+        private void OnNoiseOctavesScroll(object sender, EventArgs e)
+        {
+            _simulation.NoiseOctaves = _noiseOctavesBar.Value;
+            _noiseOctavesLabel.Text = $"Octaves: {_noiseOctavesBar.Value}";
+        }
+
+        private void OnNoiseThresholdScroll(object sender, EventArgs e)
+        {
+            _simulation.NoiseThreshold = _noiseThresholdBar.Value / 100.0;
+            _noiseThresholdLabel.Text = $"Threshold: {_simulation.NoiseThreshold:0.00}";
+        }
+
+        private void OnNoiseStrengthScroll(object sender, EventArgs e)
+        {
+            _simulation.NoiseStrength = _noiseStrengthBar.Value / 100.0;
+            _noiseStrengthLabel.Text = $"Strength: {_simulation.NoiseStrength:P0}";
         }
 
         // ============================================================

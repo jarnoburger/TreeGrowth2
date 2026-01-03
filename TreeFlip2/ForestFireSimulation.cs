@@ -409,10 +409,17 @@ namespace TreeGrowth
                 int xg = _rng.NextInt(_logicalWidth);
                 int yg = _rng.NextInt(_logicalHeight);
 
-                if (GetCell(xg, yg) == VACANT && _rng.NextDouble() < _p)
+                if (GetCell(xg, yg) == VACANT)
                 {
-                    SetCell(xg, yg, TREE);
-                    _treeCount++;
+                    // Apply spatial density multiplier from Perlin noise
+                    double densityMultiplier = GetDensityMultiplier(xg, yg);
+                    double adjustedP = _p * densityMultiplier;
+
+                    if (_rng.NextDouble() < adjustedP)
+                    {
+                        SetCell(xg, yg, TREE);
+                        _treeCount++;
+                    }
                 }
 
                 // Lightning strike attempt
@@ -436,10 +443,17 @@ namespace TreeGrowth
                 int xg = _rng.NextInt(_logicalWidth);
                 int yg = _rng.NextInt(_logicalHeight);
 
-                if (GetCell(xg, yg) == VACANT && _rng.NextDouble() < _p)
+                if (GetCell(xg, yg) == VACANT)
                 {
-                    SetCell(xg, yg, TREE);
-                    _treeCount++;
+                    // Apply spatial density multiplier from Perlin noise
+                    double densityMultiplier = GetDensityMultiplier(xg, yg);
+                    double adjustedP = _p * densityMultiplier;
+
+                    if (_rng.NextDouble() < adjustedP)
+                    {
+                        SetCell(xg, yg, TREE);
+                        _treeCount++;
+                    }
                 }
 
                 // Lightning strike (can add to existing fire)
