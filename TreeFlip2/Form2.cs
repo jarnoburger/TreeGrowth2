@@ -1,8 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Drawing;
-using System.Windows.Forms;
-
 namespace TreeGrowth
 {
     public partial class Form2 : Form
@@ -10,7 +5,7 @@ namespace TreeGrowth
         // ============================================================
         // === CONFIGURATION ===
         // ============================================================
-        
+
         private int _outputWidth = 1920;
         private int _outputHeight = 1080;
         private int _cellSize = 1;
@@ -18,14 +13,14 @@ namespace TreeGrowth
         // ============================================================
         // === CORE COMPONENTS ===
         // ============================================================
-        
+
         private ForestFireSimulation _simulation = null!;
         private ForestFireRenderer _renderer = null!;
 
         // ============================================================
         // === UI STATE ===
         // ============================================================
-        
+
         private bool _isSimulating;
         private bool _showStats = true;
         private bool _isFullscreen = false;
@@ -35,7 +30,7 @@ namespace TreeGrowth
         // ============================================================
         // === PARAMETERS ===
         // ============================================================
-        
+
         private double _p = 0.01;
         private double _f = 1e-5;
         private double _pfRatio = 10.0;
@@ -43,7 +38,7 @@ namespace TreeGrowth
         // ============================================================
         // === PERFORMANCE MONITORING ===
         // ============================================================
-        
+
         private int _targetFps = 60;
         private DateTime _lastFrameTime = DateTime.Now;
         private double _actualFps = 0;
@@ -56,7 +51,7 @@ namespace TreeGrowth
         // ============================================================
         // === NDI STREAMING ===
         // ============================================================
-        
+
         private NdiSender? _ndiSender;
         private bool _ndiEnabled = false;
         private readonly string _ndiSourceName = "Forest Fire Simulation";
@@ -80,9 +75,12 @@ namespace TreeGrowth
 
             _timer.Tick += (_, __) => StepFrame();
 
+            // Add mouse click handler for starting fires
+            _picture.MouseDown += OnPictureMouseDown;
+
             InitializeSimulation();
             UpdateTimerInterval();
-            
+
             _isInitializing = false;
         }
 
@@ -424,7 +422,7 @@ namespace TreeGrowth
             // Recreate renderer with new dimensions
             _renderer?.Dispose();
             _renderer = new ForestFireRenderer(_outputWidth, _outputHeight, _cellSize, Environment.ProcessorCount);
-            
+
             // Restore renderer settings
             _renderer.ColorTree = _treeColorBtn.BackColor;
             _renderer.ColorVacant = _vacantColorBtn.BackColor;
@@ -454,7 +452,7 @@ namespace TreeGrowth
         {
             _simulation.Step();
             DrawFrame();
-            
+
             _frameCounter++;
             if (_frameCounter >= UI_UPDATE_INTERVAL)
             {
@@ -498,7 +496,7 @@ namespace TreeGrowth
             double density = (double)_simulation.TreeCount / _simulation.TotalLogicalCells * 100.0;
             _densityLabel.Text = $"Density: {density:0.00}%";
             _firesLabel.Text = $"Fires: {_simulation.TotalFires:n0}";
-            
+
             string bloomInfo = _renderer.EnableBloom ? $" Bloom:{_renderer.LastBloomMs}ms" : "";
             _fpsActualLabel.Text = $"FPS: {_actualFps:0.0} (Draw:{_renderer.LastDrawMs}ms{bloomInfo})";
             _gridInfoLabel.Text = $"Logical: {_simulation.LogicalWidth}×{_simulation.LogicalHeight} | Cell: {_cellSize}px";
@@ -514,7 +512,7 @@ namespace TreeGrowth
             _pLabel.Text = $"Tree Growth (p): {_p:0.0000}";
             _fLabel.Text = $"Lightning (f): {_f:0.00e+0}";
             _ratioLabel.Text = $"Ratio (p/f): {_pfRatio:0.0}";
-            
+
             double scaleFactor = (double)_simulation.TotalLogicalCells / (512 * 512);
             _speedLabel.Text = $"Steps/Frame: {_simulation.BaseStepsPerFrame:n0} (×{scaleFactor:0.0} = {_simulation.StepsPerFrame:n0})";
         }
@@ -538,6 +536,28 @@ namespace TreeGrowth
             double t = v / 100000.0;
             double curved = t * t * t;
             return curved * fMax;
+        }
+
+        // ============================================================
+        // === MOUSE INTERACTION ===
+        // ============================================================
+
+        private void OnPictureMouseDown(object? sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Left)
+                return;
+
+            // Convert screen coordinates to logical grid coordinates
+            int logicalX = (e.X * _outputWidth / _picture.ClientSize.Width) / _cellSize;
+            int logicalY = (e.Y * _outputHeight / _picture.ClientSize.Height) / _cellSize;
+
+            // Try to start a fire at the clicked location
+            if (_simulation.TryStartFireAt(logicalX, logicalY))
+            {
+                // Fire started successfully, redraw immediately
+                DrawFrame();
+                UpdateStatsLabels();
+            }
         }
 
         // ============================================================
@@ -632,7 +652,7 @@ namespace TreeGrowth
 
             _fullscreenBtn.Text = _isFullscreen ? "Exit Fullscreen (F11)" : "Fullscreen (F11)";
         }
-            
+
         private void ToggleSimulation()
         {
             _isSimulating = !_isSimulating;
@@ -720,7 +740,7 @@ namespace TreeGrowth
         private void OnCellSizeChanged(object sender, EventArgs e)
         {
             if (_isInitializing) return;
-            
+
             bool wasRunning = _isSimulating;
             if (wasRunning)
             {
@@ -745,7 +765,7 @@ namespace TreeGrowth
         private void OnGridSizeChanged(object sender, EventArgs e)
         {
             if (_isInitializing) return;
-            
+
             bool wasRunning = _isSimulating;
             if (wasRunning)
             {
@@ -810,15 +830,15 @@ namespace TreeGrowth
         private void OnPresetChanged(object sender, EventArgs e)
         {
             if (_presetCombo.SelectedIndex < 0) return;
-            
+
             var preset = (ColorPresetManager.Preset)_presetCombo.SelectedIndex;
             var colors = ColorPresetManager.GetPreset(preset);
-            
+
             _renderer.ColorTree = colors.Tree;
             _renderer.ColorVacant = colors.Vacant;
             _renderer.ColorFireBase = colors.Fire;
             _renderer.ColorBurnout = colors.Burnout;
-            
+
             _treeColorBtn.BackColor = colors.Tree;
             _vacantColorBtn.BackColor = colors.Vacant;
             _fireColorBtn.BackColor = colors.Fire;
@@ -860,10 +880,10 @@ namespace TreeGrowth
                 _ndiSender?.Dispose();
                 _ndiSender = new NdiSender(_ndiSourceName, _outputWidth, _outputHeight);
                 _ndiEnabled = true;
-                
+
                 if (_ndiCheckBox != null)
                     _ndiCheckBox.Checked = true;
-                
+
                 UpdateFormTitle();
                 System.Diagnostics.Debug.WriteLine($"✓ NDI initialized: {_ndiSourceName}");
             }
@@ -871,7 +891,7 @@ namespace TreeGrowth
             {
                 MessageBox.Show(ex.Message, "NDI Initialization Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 _ndiEnabled = false;
-                
+
                 if (_ndiCheckBox != null)
                     _ndiCheckBox.Checked = false;
             }
@@ -882,10 +902,10 @@ namespace TreeGrowth
             _ndiSender?.Dispose();
             _ndiSender = null;
             _ndiEnabled = false;
-            
+
             if (_ndiCheckBox != null)
                 _ndiCheckBox.Checked = false;
-            
+
             UpdateFormTitle();
             System.Diagnostics.Debug.WriteLine("✓ NDI shut down");
         }
@@ -930,6 +950,11 @@ namespace TreeGrowth
                 _ndiSender?.Dispose();
             }
             base.Dispose(disposing);
+        }
+
+        private void Form2_Load(object sender, EventArgs e)
+        {
+
         }
     }
 }

@@ -89,6 +89,15 @@ namespace TreeGrowth
         private int _fireAnimationSpeed = 1;
         private bool _animateFires = true;
 
+        // === PERLIN NOISE DISTRIBUTION ===
+        private bool _usePerlinDistribution = false;
+        private PerlinNoise? _perlinNoise;
+        private double[,]? _densityMap;
+        private double _noiseScale = 50.0;
+        private int _noiseOctaves = 4;
+        private double _noiseThreshold = 0.3;  // Minimum noise value for tree growth (0-1)
+        private double _noiseStrength = 1.0;   // How much noise affects growth (0=none, 1=full)
+
         /// <summary>Gets or sets tree growth probability (p)</summary>
         public double P
         {
@@ -144,6 +153,59 @@ namespace TreeGrowth
 
         /// <summary>Gets the actual steps per frame (scaled)</summary>
         public int StepsPerFrame => _stepsPerFrame;
+
+        /// <summary>Gets or sets whether to use Perlin noise for spatial tree distribution</summary>
+        public bool UsePerlinDistribution
+        {
+            get => _usePerlinDistribution;
+            set
+            {
+                if (_usePerlinDistribution != value)
+                {
+                    _usePerlinDistribution = value;
+                    if (value)
+                        RegenerateNoiseMap();
+                }
+            }
+        }
+
+        /// <summary>Gets or sets the scale of Perlin noise features (higher = larger patches)</summary>
+        public double NoiseScale
+        {
+            get => _noiseScale;
+            set
+            {
+                _noiseScale = Math.Max(1.0, value);
+                if (_usePerlinDistribution)
+                    RegenerateNoiseMap();
+            }
+        }
+
+        /// <summary>Gets or sets the number of octaves in Perlin noise (more = more detail)</summary>
+        public int NoiseOctaves
+        {
+            get => _noiseOctaves;
+            set
+            {
+                _noiseOctaves = Math.Clamp(value, 1, 8);
+                if (_usePerlinDistribution)
+                    RegenerateNoiseMap();
+            }
+        }
+
+        /// <summary>Gets or sets the minimum noise threshold for tree growth (0-1)</summary>
+        public double NoiseThreshold
+        {
+            get => _noiseThreshold;
+            set => _noiseThreshold = Math.Clamp(value, 0.0, 1.0);
+        }
+
+        /// <summary>Gets or sets how much noise affects growth probability (0=none, 1=full)</summary>
+        public double NoiseStrength
+        {
+            get => _noiseStrength;
+            set => _noiseStrength = Math.Clamp(value, 0.0, 1.0);
+        }
 
         // ============================================================
         // === RNG & PARALLEL ===
@@ -212,6 +274,42 @@ namespace TreeGrowth
             _burningCells.Clear();
             _currentFireSize = 0;
             _fireStats.Clear();
+
+            // Regenerate noise map if using Perlin distribution
+            if (_usePerlinDistribution)
+                RegenerateNoiseMap();
+        }
+
+        /// <summary>
+        /// Regenerates the Perlin noise density map
+        /// </summary>
+        private void RegenerateNoiseMap()
+        {
+            var seed = (int)(_rng.NextU64() & 0x7FFFFFFF);
+            _perlinNoise = new PerlinNoise(seed, _noiseScale, _noiseOctaves);
+            _densityMap = _perlinNoise.GenerateNoiseMap(_logicalWidth, _logicalHeight);
+        }
+
+        /// <summary>
+        /// Gets the density multiplier at a given location (based on Perlin noise)
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private double GetDensityMultiplier(int x, int y)
+        {
+            if (!_usePerlinDistribution || _densityMap == null)
+                return 1.0;
+
+            double noiseValue = _densityMap[y, x];
+
+            // Apply threshold: values below threshold have zero probability
+            if (noiseValue < _noiseThreshold)
+                return 0.0;
+
+            // Normalize above threshold: map [threshold, 1] to [0, 1]
+            double normalized = (noiseValue - _noiseThreshold) / (1.0 - _noiseThreshold);
+
+            // Blend between uniform (1.0) and noise-based distribution
+            return 1.0 - _noiseStrength + _noiseStrength * normalized;
         }
 
         private void UpdateStepsPerFrame()
@@ -241,6 +339,37 @@ namespace TreeGrowth
         {
             if ((uint)x < _logicalWidth && (uint)y < _logicalHeight)
                 _grid[y * _logicalWidth + x] = value;
+        }
+
+        /// <summary>
+        /// Manually starts a fire at the specified location (if a tree exists)
+        /// </summary>
+        /// <param name="x">Logical X coordinate</param>
+        /// <param name="y">Logical Y coordinate</param>
+        /// <returns>True if fire was started, false if no tree at location</returns>
+        public bool TryStartFireAt(int x, int y)
+        {
+            if ((uint)x >= _logicalWidth || (uint)y >= _logicalHeight)
+                return false;
+
+            if (GetCell(x, y) != TREE)
+                return false;
+
+            if (_isFireActive)
+            {
+                // Fire already active, just add this cell to the active fire
+                SetCell(x, y, BURNING);
+                _treeCount--;
+                _currentFireSize++;
+                _fireList.Add((x, y));
+            }
+            else
+            {
+                // Start a new fire
+                StartFire(x, y);
+            }
+
+            return true;
         }
 
         // ============================================================
