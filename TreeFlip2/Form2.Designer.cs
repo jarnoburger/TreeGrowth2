@@ -10,6 +10,16 @@ namespace TreeGrowth
         // --- Timer ---
         private System.Windows.Forms.Timer _timer;
 
+        // --- Menu Strip ---
+        private System.Windows.Forms.MenuStrip _menuStrip;
+        private System.Windows.Forms.ToolStripMenuItem _fileMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem _saveSettingsMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem _saveSettingsAsMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem _loadSettingsMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem _revertToDefaultsMenuItem;
+        private System.Windows.Forms.ToolStripSeparator _menuSeparator;
+        private System.Windows.Forms.ToolStripMenuItem _exitMenuItem;
+
         // --- Main Display ---
         private System.Windows.Forms.PictureBox _picture;
         private System.Windows.Forms.Panel _parametersPanel;
@@ -98,6 +108,17 @@ namespace TreeGrowth
         {
             components = new System.ComponentModel.Container();
             _timer = new System.Windows.Forms.Timer(components);
+            
+            // === MENU STRIP (NEW) ===
+            _menuStrip = new MenuStrip();
+            _fileMenuItem = new ToolStripMenuItem();
+            _saveSettingsMenuItem = new ToolStripMenuItem();
+            _saveSettingsAsMenuItem = new ToolStripMenuItem();
+            _loadSettingsMenuItem = new ToolStripMenuItem();
+            _revertToDefaultsMenuItem = new ToolStripMenuItem();
+            _menuSeparator = new ToolStripSeparator();
+            _exitMenuItem = new ToolStripMenuItem();
+            
             _picture = new PictureBox();
             
             // === PARAMETERS PANEL ===
@@ -171,6 +192,7 @@ namespace TreeGrowth
             _controlPanel = new Panel();
             
             // Begin Init
+            _menuStrip.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)_picture).BeginInit();
             _parametersPanel.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)_pBar).BeginInit();
@@ -190,18 +212,83 @@ namespace TreeGrowth
             SuspendLayout();
             
             // ================================================================
-            // _picture (EXACT MATCH to Jarno's)
+            // MENU STRIP (NEW)
+            // ================================================================
+            _menuStrip.BackColor = Color.FromArgb(45, 45, 45);
+            _menuStrip.ForeColor = Color.White;
+            _menuStrip.Items.AddRange(new ToolStripItem[] { _fileMenuItem });
+            _menuStrip.Location = new Point(0, 0);
+            _menuStrip.Name = "_menuStrip";
+            _menuStrip.Padding = new Padding(8, 3, 0, 3);
+            _menuStrip.Size = new Size(1920, 35);
+            _menuStrip.TabIndex = 0;
+            _menuStrip.Text = "menuStrip";
+            
+            // File Menu
+            _fileMenuItem.DropDownItems.AddRange(new ToolStripItem[] {
+                _saveSettingsMenuItem,
+                _saveSettingsAsMenuItem,
+                _loadSettingsMenuItem,
+                _revertToDefaultsMenuItem,
+                _menuSeparator,
+                _exitMenuItem
+            });
+            _fileMenuItem.ForeColor = Color.White;
+            _fileMenuItem.Name = "_fileMenuItem";
+            _fileMenuItem.Size = new Size(54, 29);
+            _fileMenuItem.Text = "&File";
+            
+            // Save Settings (Ctrl+S)
+            _saveSettingsMenuItem.Name = "_saveSettingsMenuItem";
+            _saveSettingsMenuItem.ShortcutKeys = Keys.Control | Keys.S;
+            _saveSettingsMenuItem.Size = new Size(300, 34);
+            _saveSettingsMenuItem.Text = "&Save Settings";
+            _saveSettingsMenuItem.Click += OnSaveSettingsMenuClick;
+            
+            // Save Settings As (Ctrl+Shift+S)
+            _saveSettingsAsMenuItem.Name = "_saveSettingsAsMenuItem";
+            _saveSettingsAsMenuItem.ShortcutKeys = Keys.Control | Keys.Shift | Keys.S;
+            _saveSettingsAsMenuItem.Size = new Size(300, 34);
+            _saveSettingsAsMenuItem.Text = "Save Settings &As...";
+            _saveSettingsAsMenuItem.Click += OnSaveSettingsAsMenuClick;
+            
+            // Load Settings (Ctrl+O)
+            _loadSettingsMenuItem.Name = "_loadSettingsMenuItem";
+            _loadSettingsMenuItem.ShortcutKeys = Keys.Control | Keys.O;
+            _loadSettingsMenuItem.Size = new Size(300, 34);
+            _loadSettingsMenuItem.Text = "&Load Settings...";
+            _loadSettingsMenuItem.Click += OnLoadSettingsMenuClick;
+            
+            // Revert to Defaults
+            _revertToDefaultsMenuItem.Name = "_revertToDefaultsMenuItem";
+            _revertToDefaultsMenuItem.Size = new Size(300, 34);
+            _revertToDefaultsMenuItem.Text = "&Revert to Defaults";
+            _revertToDefaultsMenuItem.Click += OnRevertToDefaultsMenuClick;
+            
+            // Separator
+            _menuSeparator.Name = "_menuSeparator";
+            _menuSeparator.Size = new Size(297, 6);
+            
+            // Exit
+            _exitMenuItem.Name = "_exitMenuItem";
+            _exitMenuItem.ShortcutKeys = Keys.Alt | Keys.F4;
+            _exitMenuItem.Size = new Size(300, 34);
+            _exitMenuItem.Text = "E&xit";
+            _exitMenuItem.Click += OnExitMenuClick;
+            
+            // ================================================================
+            // _picture (Adjusted Y for menu strip)
             // ================================================================
             _picture.BackColor = Color.FromArgb(169, 130, 104);
-            _picture.Location = new Point(0, 0);
+            _picture.Location = new Point(0, 35);
             _picture.Name = "_picture";
-            _picture.Size = new Size(1920, 1080);
+            _picture.Size = new Size(1920, 1045);
             _picture.SizeMode = PictureBoxSizeMode.Zoom;
-            _picture.TabIndex = 0;
+            _picture.TabIndex = 1;
             _picture.TabStop = false;
             
             // ================================================================
-            // CONTROL PANEL (EXACT MATCH: 0, 1080 — 492×213)
+            // CONTROL PANEL (Adjusted Y: 1080 → 1080+35)
             // ================================================================
             _controlPanel.BackColor = Color.FromArgb(35, 35, 35);
             _controlPanel.Controls.Add(_seedLabel);
@@ -210,11 +297,11 @@ namespace TreeGrowth
             _controlPanel.Controls.Add(_startBtn);
             _controlPanel.Controls.Add(_resetBtn);
             _controlPanel.Controls.Add(_fullscreenBtn);
-            _controlPanel.Location = new Point(0, 1080);
+            _controlPanel.Location = new Point(0, 1115);
             _controlPanel.Name = "_controlPanel";
             _controlPanel.Padding = new Padding(15);
             _controlPanel.Size = new Size(492, 213);
-            _controlPanel.TabIndex = 1;
+            _controlPanel.TabIndex = 2;
             
             // _seedLabel
             _seedLabel.AutoSize = true;
@@ -297,7 +384,7 @@ namespace TreeGrowth
             _fullscreenBtn.Click += OnFullscreenBtnClick;
             
             // ================================================================
-            // PARAMETERS PANEL (EXACT MATCH: 484, 1080 — 616×213)
+            // PARAMETERS PANEL (Adjusted Y: 1080 → 1115)
             // ================================================================
             _parametersPanel.BackColor = Color.FromArgb(35, 35, 35);
             _parametersPanel.Controls.Add(_parametersHeader);
@@ -309,11 +396,11 @@ namespace TreeGrowth
             _parametersPanel.Controls.Add(_ratioLabel);
             _parametersPanel.Controls.Add(_speedBar);
             _parametersPanel.Controls.Add(_speedLabel);
-            _parametersPanel.Location = new Point(484, 1080);
+            _parametersPanel.Location = new Point(484, 1115);
             _parametersPanel.Name = "_parametersPanel";
             _parametersPanel.Padding = new Padding(15);
             _parametersPanel.Size = new Size(616, 213);
-            _parametersPanel.TabIndex = 2;
+            _parametersPanel.TabIndex = 3;
             
             // _parametersHeader
             _parametersHeader.AutoSize = true;
@@ -412,8 +499,7 @@ namespace TreeGrowth
             _speedLabel.Text = "Steps/Frame: 1,000";
             
             // ================================================================
-            // VISUAL PANEL (EXACT MATCH: 1100, 1080 — 550×213)
-            // Now includes Cell Size and Preset
+            // VISUAL PANEL (Adjusted Y: 1080 → 1115)
             // ================================================================
             _visualPanel.BackColor = Color.FromArgb(35, 35, 35);
             _visualPanel.Controls.Add(_visualHeader);
@@ -436,11 +522,11 @@ namespace TreeGrowth
             _visualPanel.Controls.Add(_gridSizeCombo);
             _visualPanel.Controls.Add(_cellSizeLabel);
             _visualPanel.Controls.Add(_cellSizeCombo);
-            _visualPanel.Location = new Point(1100, 1080);
+            _visualPanel.Location = new Point(1100, 1115);
             _visualPanel.Name = "_visualPanel";
             _visualPanel.Padding = new Padding(15);
             _visualPanel.Size = new Size(550, 213);
-            _visualPanel.TabIndex = 3;
+            _visualPanel.TabIndex = 4;
             
             // _visualHeader
             _visualHeader.AutoSize = true;
@@ -597,7 +683,7 @@ namespace TreeGrowth
             _burnoutColorBtn.UseVisualStyleBackColor = false;
             _burnoutColorBtn.Click += OnBurnoutColorClick;
             
-            // _presetLabel (NEW - fits in original space)
+            // _presetLabel
             _presetLabel.AutoSize = true;
             _presetLabel.Font = new Font("Segoe UI", 8F);
             _presetLabel.ForeColor = Color.FromArgb(180, 180, 180);
@@ -607,7 +693,7 @@ namespace TreeGrowth
             _presetLabel.TabIndex = 14;
             _presetLabel.Text = "Preset:";
             
-            // _presetCombo (NEW)
+            // _presetCombo
             _presetCombo.BackColor = Color.FromArgb(50, 50, 50);
             _presetCombo.DropDownStyle = ComboBoxStyle.DropDownList;
             _presetCombo.ForeColor = Color.White;
@@ -627,7 +713,7 @@ namespace TreeGrowth
             _presetCombo.TabIndex = 15;
             _presetCombo.SelectedIndexChanged += OnPresetChanged;
             
-            // _gridSizeLabel (moved to fit)
+            // _gridSizeLabel
             _gridSizeLabel.AutoSize = true;
             _gridSizeLabel.Font = new Font("Segoe UI", 8F);
             _gridSizeLabel.ForeColor = Color.FromArgb(180, 180, 180);
@@ -654,7 +740,7 @@ namespace TreeGrowth
             _gridSizeCombo.TabIndex = 17;
             _gridSizeCombo.SelectedIndexChanged += OnGridSizeChanged;
             
-            // _cellSizeLabel (NEW - highlighted)
+            // _cellSizeLabel
             _cellSizeLabel.AutoSize = true;
             _cellSizeLabel.Font = new Font("Segoe UI", 8F, FontStyle.Bold);
             _cellSizeLabel.ForeColor = Color.FromArgb(100, 200, 255);
@@ -664,7 +750,7 @@ namespace TreeGrowth
             _cellSizeLabel.TabIndex = 18;
             _cellSizeLabel.Text = "Cell Size:";
             
-            // _cellSizeCombo (NEW)
+            // _cellSizeCombo
             _cellSizeCombo.BackColor = Color.FromArgb(50, 50, 50);
             _cellSizeCombo.DropDownStyle = ComboBoxStyle.DropDownList;
             _cellSizeCombo.ForeColor = Color.White;
@@ -682,7 +768,7 @@ namespace TreeGrowth
             _cellSizeCombo.SelectedIndexChanged += OnCellSizeChanged;
             
             // ================================================================
-            // STATS PANEL (EXACT MATCH: 1650, 1080 — 270×213)
+            // STATS PANEL (Adjusted Y: 1080 → 1115)
             // ================================================================
             _statsPanel.BackColor = Color.FromArgb(35, 35, 35);
             _statsPanel.Controls.Add(_statsHeader);
@@ -694,11 +780,11 @@ namespace TreeGrowth
             _statsPanel.Controls.Add(_gridInfoLabel);
             _statsPanel.Controls.Add(_neighborhoodLabel);
             _statsPanel.Controls.Add(_neighborhoodCombo);
-            _statsPanel.Location = new Point(1650, 1080);
+            _statsPanel.Location = new Point(1650, 1115);
             _statsPanel.Name = "_statsPanel";
             _statsPanel.Padding = new Padding(15);
             _statsPanel.Size = new Size(270, 213);
-            _statsPanel.TabIndex = 4;
+            _statsPanel.TabIndex = 5;
             
             // _statsHeader
             _statsHeader.AutoSize = true;
@@ -792,7 +878,7 @@ namespace TreeGrowth
             _neighborhoodCombo.SelectedIndexChanged += OnNeighborhoodChanged;
             
             // ================================================================
-            // BLOOM PANEL (NEW - Below main panels, second row)
+            // BLOOM PANEL (Adjusted Y: 1293 → 1328)
             // ================================================================
             _bloomPanel.BackColor = Color.FromArgb(35, 35, 35);
             _bloomPanel.Controls.Add(_bloomHeader);
@@ -802,11 +888,11 @@ namespace TreeGrowth
             _bloomPanel.Controls.Add(_bloomIntensityBar);
             _bloomPanel.Controls.Add(_bloomIntensityLabel);
             _bloomPanel.Controls.Add(_bloomFireOnlyCheck);
-            _bloomPanel.Location = new Point(0, 1293);
+            _bloomPanel.Location = new Point(0, 1328);
             _bloomPanel.Name = "_bloomPanel";
             _bloomPanel.Padding = new Padding(15);
             _bloomPanel.Size = new Size(550, 120);
-            _bloomPanel.TabIndex = 5;
+            _bloomPanel.TabIndex = 6;
             
             // _bloomHeader
             _bloomHeader.AutoSize = true;
@@ -885,12 +971,13 @@ namespace TreeGrowth
             _bloomFireOnlyCheck.CheckedChanged += OnBloomFireOnlyChanged;
             
             // ================================================================
-            // Form2 (Extended for bloom panel)
+            // Form2 (Extended for menu + bloom)
             // ================================================================
             AutoScaleDimensions = new SizeF(10F, 25F);
             AutoScaleMode = AutoScaleMode.Font;
-            BackColor = Color.FromArgb(22, 22, 22);
-            ClientSize = new Size(1920, 1413);
+            BackColor = Color.FromArgb(22, 22, 22);     
+            ClientSize = new Size(1920, 1448);
+            Controls.Add(_menuStrip);
             Controls.Add(_picture);
             Controls.Add(_controlPanel);
             Controls.Add(_parametersPanel);
@@ -898,11 +985,14 @@ namespace TreeGrowth
             Controls.Add(_statsPanel);
             Controls.Add(_bloomPanel);
             ForeColor = Color.White;
+            MainMenuStrip = _menuStrip;
             Name = "Form2";
             StartPosition = FormStartPosition.CenterScreen;
             Text = "Forest Fire Model — LED Wall Presentation Mode";
             WindowState = FormWindowState.Maximized;
             
+            _menuStrip.ResumeLayout(false);
+            _menuStrip.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)_picture).EndInit();
             _parametersPanel.ResumeLayout(false);
             _parametersPanel.PerformLayout();
@@ -925,6 +1015,7 @@ namespace TreeGrowth
             _controlPanel.ResumeLayout(false);
             _controlPanel.PerformLayout();
             ResumeLayout(false);
+            PerformLayout();
         }
 
         #endregion
