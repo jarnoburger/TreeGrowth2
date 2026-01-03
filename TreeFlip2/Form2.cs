@@ -1,3 +1,5 @@
+using System.Drawing.Imaging;
+
 namespace TreeGrowth
 {
     public partial class Form2 : Form
@@ -55,6 +57,15 @@ namespace TreeGrowth
         private NdiSender? _ndiSender;
         private bool _ndiEnabled = false;
         private readonly string _ndiSourceName = "Forest Fire Simulation";
+
+        // ============================================================
+        // === OVERLAY FUNCTIONALITY ===
+        // ============================================================
+
+        private Image? _overlayImage;
+        private Bitmap? _scaledOverlayCache; // Cache scaled overlay
+        private bool _showOverlay = false;
+        private string? _overlayFilePath;
 
         // ============================================================
         // === CONSTRUCTOR ===
@@ -457,6 +468,10 @@ namespace TreeGrowth
             _renderer.BloomIntensity = _bloomIntensityBar.Value / 100f;
             _renderer.BloomFireOnly = _bloomFireOnlyCheck.Checked;
 
+            // Invalidate overlay cache since dimensions changed
+            _scaledOverlayCache?.Dispose();
+            _scaledOverlayCache = null;
+
             // Recreate simulation
             _simulation.SetGridSize(_outputWidth, _outputHeight, _cellSize);
             InitializeSimulation();
@@ -491,7 +506,20 @@ namespace TreeGrowth
         private void DrawFrame()
         {
             var bitmap = _renderer.Render(_simulation);
+
+            // Apply overlay if enabled
+            if (_showOverlay && _overlayImage != null)
+            {
+                bitmap = ApplyOverlay(bitmap);
+            }
+
+            // Dispose old image before assigning new one
+            var oldImage = _picture.Image;
             _picture.Image = bitmap;
+            if (oldImage != null && oldImage != _renderer.GetInternalBitmap())
+            {
+                oldImage.Dispose();
+            }
 
             // Send NDI frame if enabled
             if (_ndiEnabled && _ndiSender != null)
@@ -506,6 +534,199 @@ namespace TreeGrowth
                     System.Diagnostics.Debug.WriteLine($"NDI send error: {ex.Message}");
                 }
             }
+        }
+
+        /// <summary>
+        /// Applies the overlay image on top of the base bitmap
+        /// </summary>
+        private Bitmap ApplyOverlay(Bitmap baseBitmap)
+        {
+            if (_overlayImage == null)
+                return baseBitmap;
+
+            // Use cached scaled overlay if available
+            if (_scaledOverlayCache == null || 
+                _scaledOverlayCache.Width != baseBitmap.Width || 
+                _scaledOverlayCache.Height != baseBitmap.Height)
+            {
+                _scaledOverlayCache?.Dispose();
+                
+                // Pre-scale and cache the overlay in Format32bppArgb
+                _scaledOverlayCache = new Bitmap(baseBitmap.Width, baseBitmap.Height, PixelFormat.Format32bppArgb);
+                using (var g = Graphics.FromImage(_scaledOverlayCache))
+                {
+                    g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                    g.DrawImage(_overlayImage, 0, 0, baseBitmap.Width, baseBitmap.Height);
+                }
+            }
+
+            // Create a new bitmap with the same dimensions (Format32bppArgb to match renderer)
+            var resultBitmap = new Bitmap(baseBitmap.Width, baseBitmap.Height, PixelFormat.Format32bppArgb);
+
+            // Fast pixel-level compositing using LockBits
+            var baseRect = new Rectangle(0, 0, baseBitmap.Width, baseBitmap.Height);
+            var baseBits = baseBitmap.LockBits(baseRect, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+            var resultBits = resultBitmap.LockBits(baseRect, ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+            var overlayBits = _scaledOverlayCache.LockBits(baseRect, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+
+            try
+            {
+                int totalPixels = baseBitmap.Width * baseBitmap.Height;
+                
+                unsafe
+                {
+                    byte* basePtr = (byte*)baseBits.Scan0;
+                    byte* overlayPtr = (byte*)overlayBits.Scan0;
+                    byte* resultPtr = (byte*)resultBits.Scan0;
+
+                    // Process pixels in 4-byte chunks (BGRA)
+                    uint* basePtr32 = (uint*)basePtr;
+                    uint* overlayPtr32 = (uint*)overlayPtr;
+                    uint* resultPtr32 = (uint*)resultPtr;
+
+                    for (int i = 0; i < totalPixels; i++)
+                    {
+                        uint overlayPixel = overlayPtr32[i];
+                        byte overlayA = (byte)(overlayPixel >> 24);
+
+                        if (overlayA == 255)
+                        {
+                            // Fully opaque - direct copy
+                            resultPtr32[i] = overlayPixel;
+                        }
+                        else if (overlayA == 0)
+                        {
+                            // Fully transparent - copy base
+                            resultPtr32[i] = basePtr32[i];
+                        }
+                        else
+                        {
+                            // Partial transparency - alpha blending
+                            int offset = i * 4;
+                            byte baseB = basePtr[offset];
+                            byte baseG = basePtr[offset + 1];
+                            byte baseR = basePtr[offset + 2];
+                            
+                            byte overlayB = overlayPtr[offset];
+                            byte overlayG = overlayPtr[offset + 1];
+                            byte overlayR = overlayPtr[offset + 2];
+
+                            // Integer-based alpha blending (faster than float)
+                            int invAlpha = 255 - overlayA;
+                            resultPtr[offset] = (byte)((overlayB * overlayA + baseB * invAlpha) / 255);
+                            resultPtr[offset + 1] = (byte)((overlayG * overlayA + baseG * invAlpha) / 255);
+                            resultPtr[offset + 2] = (byte)((overlayR * overlayA + baseR * invAlpha) / 255);
+                            resultPtr[offset + 3] = 255;
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                baseBitmap.UnlockBits(baseBits);
+                resultBitmap.UnlockBits(resultBits);
+                _scaledOverlayCache.UnlockBits(overlayBits);
+            }
+
+            // Do NOT dispose baseBitmap - it belongs to the renderer
+            return resultBitmap;
+        }
+
+        /// <summary>
+        /// Loads an overlay PNG image from a file
+        /// </summary>
+        private void LoadOverlayImage()
+        {
+            using var dlg = new OpenFileDialog
+            {
+                Filter = "PNG Images|*.png|All Image Files|*.png;*.jpg;*.jpeg;*.bmp|All Files|*.*",
+                DefaultExt = "png",
+                Title = "Load Overlay Image"
+            };
+
+            if (dlg.ShowDialog() == DialogResult.OK)
+            {
+                try
+                {
+                    // Dispose of the old overlay image if it exists
+                    _overlayImage?.Dispose();
+                    _overlayImage = null;
+                    _scaledOverlayCache?.Dispose();
+                    _scaledOverlayCache = null;
+
+                    // Load the image using a FileStream to avoid file locking issues
+                    using (var stream = new FileStream(dlg.FileName, FileMode.Open, FileAccess.Read))
+                    {
+                        // Create a copy of the image in memory to release the file handle
+                        using (var tempImage = Image.FromStream(stream, false, false))
+                        {
+                            // Convert to Format32bppArgb to match renderer's format
+                            _overlayImage = new Bitmap(tempImage.Width, tempImage.Height, PixelFormat.Format32bppArgb);
+                            using (var g = Graphics.FromImage(_overlayImage))
+                            {
+                                g.DrawImage(tempImage, 0, 0, tempImage.Width, tempImage.Height);
+                            }
+                        }
+                    }
+
+                    _overlayFilePath = dlg.FileName;
+
+                    // Enable overlay display
+                    _showOverlay = true;
+                    _overlayToggle.Checked = true;
+
+                    // Redraw frame with overlay
+                    DrawFrame();
+
+                    MessageBox.Show(
+                        $"Overlay loaded successfully:\n{Path.GetFileName(dlg.FileName)}\n\nSize: {_overlayImage.Width}×{_overlayImage.Height}",
+                        "Overlay Loaded",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information
+                    );
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(
+                        $"Failed to load overlay image:\n{ex.Message}\n\nStack Trace:\n{ex.StackTrace}",
+                        "Load Error",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error
+                    );
+                    _overlayImage?.Dispose();
+                    _overlayImage = null;
+                    _scaledOverlayCache?.Dispose();
+                    _scaledOverlayCache = null;
+                    _overlayFilePath = null;
+                    _showOverlay = false;
+                    _overlayToggle.Checked = false;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Toggles overlay visibility on/off
+        /// </summary>
+        private void ToggleOverlay(bool enabled)
+        {
+            _showOverlay = enabled;
+
+            if (_showOverlay && _overlayImage == null)
+            {
+                // If enabling but no image loaded, prompt to load one
+                MessageBox.Show(
+                    "No overlay image loaded. Please load an overlay image first.",
+                    "No Overlay",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information
+                );
+                _overlayToggle.Checked = false;
+                _showOverlay = false;
+                return;
+            }
+
+            // Redraw frame to show/hide overlay
+            DrawFrame(); 
         }
 
         // ============================================================
@@ -545,7 +766,8 @@ namespace TreeGrowth
             string status = _isSimulating ? "▶ Running" : "⏸ Paused";
             double density = (double)_simulation.TreeCount / _simulation.TotalLogicalCells * 100.0;
             string ndiStatus = _ndiEnabled ? " | 📡 NDI" : "";
-            Text = $"Forest Fire OPTIMIZED — {status} | {_outputWidth}×{_outputHeight} | Trees: {_simulation.TreeCount:n0} ({density:0.0}%) | FPS: {_actualFps:0}{ndiStatus}";
+            string overlayStatus = _showOverlay && _overlayImage != null ? " | 🖼 Overlay" : "";
+            Text = $"Forest Fire OPTIMIZED — {status} | {_outputWidth}×{_outputHeight} | Trees: {_simulation.TreeCount:n0} ({density:0.0}%) | FPS: {_actualFps:0}{ndiStatus}{overlayStatus}";
         }
 
         // ============================================================
@@ -639,6 +861,12 @@ namespace TreeGrowth
             {
                 _renderer.EnableBloom = !_renderer.EnableBloom;
                 _bloomCheck.Checked = _renderer.EnableBloom;
+                e.Handled = true;
+            }
+            else if (e.KeyCode == Keys.O && !e.Control)
+            {
+                // O key: Toggle overlay
+                _overlayToggle.Checked = !_overlayToggle.Checked;
                 e.Handled = true;
             }
         }
@@ -1022,6 +1250,8 @@ namespace TreeGrowth
                 _timer?.Dispose();
                 _renderer?.Dispose();
                 _ndiSender?.Dispose();
+                _overlayImage?.Dispose();
+                _scaledOverlayCache?.Dispose();
             }
             base.Dispose(disposing);
         }
@@ -1029,6 +1259,20 @@ namespace TreeGrowth
         private void Form2_Load(object sender, EventArgs e)
         {
 
+        }
+
+        // ============================================================
+        // === OVERLAY EVENT HANDLERS ===
+        // ============================================================
+
+        private void OnOverlayLoadClick(object? sender, EventArgs e)
+        {
+            LoadOverlayImage();
+        }
+
+        private void OnOverlayToggleChanged(object? sender, EventArgs e)
+        {
+            ToggleOverlay(_overlayToggle.Checked);
         }
     }
 }
