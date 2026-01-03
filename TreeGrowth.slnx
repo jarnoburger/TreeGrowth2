@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="TreeFLip/TreeFlip.csproj" />
+  <Project Path="TreeGrowth/TreeGrowth.csproj" />
+</Solution>
