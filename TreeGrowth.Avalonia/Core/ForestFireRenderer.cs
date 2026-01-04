@@ -32,6 +32,11 @@ namespace TreeGrowth.Avalonia.Core
         public float BloomIntensity { get; set; } = 0.5f;
         public bool BloomFireOnly { get; set; } = true;
 
+        // Overlay
+        private SKBitmap? _overlayImage;
+        private SKBitmap? _scaledOverlayCache;
+        public bool ShowOverlay { get; set; } = false;
+
         private readonly byte[] _pixelBuffer;
         private readonly byte[] _blurBuffer;
         private readonly byte[] _bloomTempBuffer;
@@ -101,6 +106,71 @@ namespace TreeGrowth.Avalonia.Core
         public void UpdateBloomKernel()
         {
             InitializeBloomKernel();
+        }
+
+        /// <summary>
+        /// Loads an overlay image from a file path
+        /// </summary>
+        public bool LoadOverlayImage(string filePath)
+        {
+            try
+            {
+                // Dispose old overlay
+                _overlayImage?.Dispose();
+                _overlayImage = null;
+                _scaledOverlayCache?.Dispose();
+                _scaledOverlayCache = null;
+
+                // Load new overlay
+                _overlayImage = SKBitmap.Decode(filePath);
+                return _overlayImage != null;
+            }
+            catch
+            {
+                _overlayImage?.Dispose();
+                _overlayImage = null;
+                _scaledOverlayCache?.Dispose();
+                _scaledOverlayCache = null;
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Loads an overlay image from a byte array
+        /// </summary>
+        public bool LoadOverlayImage(byte[] imageData)
+        {
+            try
+            {
+                // Dispose old overlay
+                _overlayImage?.Dispose();
+                _overlayImage = null;
+                _scaledOverlayCache?.Dispose();
+                _scaledOverlayCache = null;
+
+                // Load new overlay
+                _overlayImage = SKBitmap.Decode(imageData);
+                return _overlayImage != null;
+            }
+            catch
+            {
+                _overlayImage?.Dispose();
+                _overlayImage = null;
+                _scaledOverlayCache?.Dispose();
+                _scaledOverlayCache = null;
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Clears the overlay image
+        /// </summary>
+        public void ClearOverlayImage()
+        {
+            _overlayImage?.Dispose();
+            _overlayImage = null;
+            _scaledOverlayCache?.Dispose();
+            _scaledOverlayCache = null;
         }
 
         public SKBitmap Render(ForestFireSimulation simulation)
@@ -200,7 +270,77 @@ namespace TreeGrowth.Avalonia.Core
 
             CopyBufferToBitmap(finalBuffer);
 
+            // Apply overlay if enabled
+            if (ShowOverlay && _overlayImage != null)
+            {
+                ApplyOverlay();
+            }
+
             return _bitmap;
+        }
+
+        /// <summary>
+        /// Applies the overlay image on top of the rendered bitmap
+        /// </summary>
+        private unsafe void ApplyOverlay()
+        {
+            if (_overlayImage == null) return;
+
+            // Create or update scaled overlay cache
+            if (_scaledOverlayCache == null ||
+                _scaledOverlayCache.Width != _outputWidth ||
+                _scaledOverlayCache.Height != _outputHeight)
+            {
+                _scaledOverlayCache?.Dispose();
+                _scaledOverlayCache = _overlayImage.Resize(
+                    new SKImageInfo(_outputWidth, _outputHeight, SKColorType.Bgra8888, SKAlphaType.Premul),
+                    SKFilterQuality.High);
+            }
+
+            if (_scaledOverlayCache == null) return;
+
+            // Get pixel pointers
+            IntPtr basePtr = _bitmap.GetPixels();
+            IntPtr overlayPtr = _scaledOverlayCache.GetPixels();
+
+            int totalPixels = _outputWidth * _outputHeight;
+
+            byte* basePixels = (byte*)basePtr;
+            byte* overlayPixels = (byte*)overlayPtr;
+
+            // Parallel alpha blending
+            Parallel.For(0, totalPixels, _parallelOptions, i =>
+            {
+                int offset = i * 4;
+                byte overlayA = overlayPixels[offset + 3];
+
+                if (overlayA == 255)
+                {
+                    // Fully opaque - direct copy
+                    basePixels[offset] = overlayPixels[offset];
+                    basePixels[offset + 1] = overlayPixels[offset + 1];
+                    basePixels[offset + 2] = overlayPixels[offset + 2];
+                    basePixels[offset + 3] = 255;
+                }
+                else if (overlayA > 0)
+                {
+                    // Partial transparency - alpha blending
+                    byte baseB = basePixels[offset];
+                    byte baseG = basePixels[offset + 1];
+                    byte baseR = basePixels[offset + 2];
+
+                    byte overlayB = overlayPixels[offset];
+                    byte overlayG = overlayPixels[offset + 1];
+                    byte overlayR = overlayPixels[offset + 2];
+
+                    // Integer-based alpha blending
+                    int invAlpha = 255 - overlayA;
+                    basePixels[offset] = (byte)((overlayB * overlayA + baseB * invAlpha) / 255);
+                    basePixels[offset + 1] = (byte)((overlayG * overlayA + baseG * invAlpha) / 255);
+                    basePixels[offset + 2] = (byte)((overlayR * overlayA + baseR * invAlpha) / 255);
+                    basePixels[offset + 3] = 255;
+                }
+            });
         }
 
         public byte[] GetPixelBuffer()
@@ -345,6 +485,8 @@ namespace TreeGrowth.Avalonia.Core
         {
             _threadRng?.Dispose();
             _bitmap?.Dispose();
+            _overlayImage?.Dispose();
+            _scaledOverlayCache?.Dispose();
         }
     }
 }

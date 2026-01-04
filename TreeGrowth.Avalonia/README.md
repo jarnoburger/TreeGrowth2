@@ -2,15 +2,20 @@
 
 A high-performance forest fire simulation using the Drossel-Schwabl cellular automaton model, built with **Avalonia UI** and **SkiaSharp** for true cross-platform compatibility.
 
-## ? Features
+## ?? Features
 
 - **Cross-Platform**: Runs on Windows, macOS (Intel & Apple Silicon), and Linux
 - **High Performance**: Optimized rendering with SkiaSharp and unsafe code
 - **Real-Time Simulation**: Interactive forest fire propagation with configurable parameters
 - **Modern UI**: Built with Avalonia MVVM architecture
 - **No Windows Dependencies**: Uses SkiaSharp instead of System.Drawing
+- **Settings Persistence**: Save/load configurations with keyboard shortcuts
+- **Overlay Support**: Load PNG/JPG images with alpha blending
+- **Perlin Noise Distribution**: Natural-looking tree density patterns
+- **Color Presets**: Pre-defined color schemes
+- **Bloom Effects**: Optional glow effects for fires
 
-## ?? Getting Started
+## ?? Quick Start
 
 ### Prerequisites
 
@@ -56,12 +61,55 @@ dotnet publish -c Release -r linux-x64 --self-contained
 
 ## ?? Controls
 
-- **Start/Stop Button**: Toggle simulation
-- **Reset Button**: Reinitialize with current parameters
-- **Tree Growth (p)**: Probability of tree growth per timestep
-- **Lightning (f)**: Probability of lightning strike per timestep
-- **Steps/Frame**: Simulation speed (auto-scaled by grid size)
-- **Seed**: Random seed for reproducible simulations
+### Keyboard Shortcuts
+- **Space** - Start/Stop simulation
+- **Ctrl+S** - Save settings
+- **Ctrl+Shift+S** - Save settings as...
+- **Ctrl+O** - Load settings
+- **Alt+F4** - Exit (with auto-save)
+
+### Mouse
+- Click and drag sliders to adjust parameters
+- Use menu bar for file operations
+
+## ?? Features Documentation
+
+### ??? Overlay Images
+Load transparent PNG images to overlay on the simulation. Perfect for logos, watermarks, or visual effects.
+
+**See:** [OVERLAY_IMPLEMENTATION.md](OVERLAY_IMPLEMENTATION.md)
+
+### ?? Settings Persistence
+Save and load your favorite configurations. Settings auto-save on exit and auto-load on startup.
+
+**See:** [SETTINGS_PERSISTENCE.md](SETTINGS_PERSISTENCE.md)
+
+## ?? Simulation Parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| Tree Growth (p) | 0.01 | Probability a vacant cell becomes a tree |
+| Lightning (f) | 0.000001 | Probability a tree is struck by lightning |
+| Steps/Frame | 1000 | Simulation timesteps per render frame |
+| Cell Size | 1 | Logical cell size in pixels |
+
+## ?? Perlin Noise Distribution
+
+Create natural-looking forest patterns with Perlin noise:
+
+- **Scale**: Size of noise features (larger = bigger patches)
+- **Octaves**: Detail levels (more = finer detail)
+- **Threshold**: Minimum density for tree growth
+- **Strength**: How much noise affects distribution
+
+## ?? Color Presets
+
+Choose from built-in color schemes:
+- Classic (default brown/orange)
+- Forest (green/red)
+- Winter (white/blue)
+- Volcanic (black/red)
+- Ocean (blue/cyan)
 
 ## ??? Architecture
 
@@ -69,6 +117,9 @@ dotnet publish -c Release -r linux-x64 --self-contained
 
 - **`ForestFireSimulation.cs`**: Platform-independent simulation engine
 - **`ForestFireRenderer.cs`**: SkiaSharp-based high-performance renderer
+- **`SimulationSettings.cs`**: Settings persistence and serialization
+- **`PerlinNoise.cs`**: 2D noise generator for spatial patterns
+- **`ColorPresetManager.cs`**: Pre-defined color schemes
 - **`MainWindowViewModel.cs`**: MVVM ViewModel with CommunityToolkit.Mvvm
 - **`MainWindow.axaml`**: Avalonia XAML UI definition
 
@@ -86,15 +137,7 @@ dotnet publish -c Release -r linux-x64 --self-contained
 3. **Bit-Shift Division**: Fast coordinate mapping for power-of-2 cell sizes
 4. **Thread-Local RNG**: Lock-free random number generation
 5. **Pre-allocated Buffers**: Zero-allocation rendering loop
-
-## ?? Simulation Parameters
-
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| Tree Growth (p) | 0.01 | Probability a vacant cell becomes a tree |
-| Lightning (f) | 0.000001 | Probability a tree is struck by lightning |
-| Steps/Frame | 1000 | Simulation timesteps per render frame |
-| Cell Size | 1 | Logical cell size in pixels |
+6. **Scaled Overlay Caching**: Avoids repeated image resizing
 
 ## ?? About the Model
 
@@ -109,7 +152,7 @@ This implements the **Drossel-Schwabl forest fire model**, a cellular automaton 
 
 This is a demonstration project showing how to migrate Windows Forms applications to cross-platform Avalonia. Feel free to:
 
-- Add new features (bloom effects, overlays, etc.)
+- Add new features (additional effects, analytics, etc.)
 - Improve performance
 - Enhance the UI
 - Add more simulation modes
@@ -134,3 +177,7 @@ This project demonstrates cross-platform .NET development patterns.
 ---
 
 **Ready for macOS!** ?? Just run `dotnet publish -r osx-arm64` and deploy!
+
+**Ready for Linux!** ?? Just run `dotnet publish -r linux-x64` and deploy!
+
+**Ready for Windows!** ?? Just run `dotnet publish -r win-x64` and deploy!
