@@ -215,7 +215,9 @@ namespace TreeGrowth
                                 }
                                 else if (state <= ForestFireSimulation.RECENTLY_BURNED_STATE)
                                 {
-                                    double decayProgress = (state - ForestFireSimulation.RECENTLY_BURNED_STATE + 1) / (double)burnDecay;
+                                    // Calculate how far through the decay we are (0.0 = just burned, 1.0 = fully decayed)
+                                    double decayProgress = (ForestFireSimulation.RECENTLY_BURNED_STATE - state) / (double)burnDecay;
+                                    // Intensity decreases as decay progresses
                                     double intensity = 1.0 - decayProgress;
                                     rowPtr[pixelOffset] = (byte)(burnB * intensity);
                                     rowPtr[pixelOffset + 1] = (byte)(burnG * intensity);
@@ -381,14 +383,25 @@ namespace TreeGrowth
                                     sumR += tempPtr[sIdx + 2] * w;
                                 }
 
-                                // Blend blurred with original (additive bloom)
+                                // Blend blurred with original (smooth bloom gradient)
                                 byte origB = srcPtr[idx + 0];
                                 byte origG = srcPtr[idx + 1];
                                 byte origR = srcPtr[idx + 2];
 
-                                dstPtr[idx + 0] = (byte)Math.Min(255, origB + sumB * intensity);
-                                dstPtr[idx + 1] = (byte)Math.Min(255, origG + sumG * intensity);
-                                dstPtr[idx + 2] = (byte)Math.Min(255, origR + sumR * intensity);
+                                // Calculate bloom contribution with smooth falloff
+                                float bloomB = sumB * intensity;
+                                float bloomG = sumG * intensity;
+                                float bloomR = sumR * intensity;
+
+                                // Use screen blending mode for softer, more natural glow
+                                // Formula: 1 - (1-a)(1-b) = a + b - ab
+                                float finalB = origB + bloomB - (origB * bloomB / 255.0f);
+                                float finalG = origG + bloomG - (origG * bloomG / 255.0f);
+                                float finalR = origR + bloomR - (origR * bloomR / 255.0f);
+
+                                dstPtr[idx + 0] = (byte)Math.Min(255, finalB);
+                                dstPtr[idx + 1] = (byte)Math.Min(255, finalG);
+                                dstPtr[idx + 2] = (byte)Math.Min(255, finalR);
                                 dstPtr[idx + 3] = 255;
                             }
                         }
