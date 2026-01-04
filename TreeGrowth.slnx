@@ -1,5 +1,6 @@
 <Solution>
-  <Project Path="TreeFLip/TreeFlip.csproj" />
-  <Project Path="TreeFlip2/TreeFlip2.csproj" Id="b021557b-8b57-4525-b5fe-40b5faf4f7ee" />
-  <Project Path="TreeGrowth/TreeGrowth.csproj" />
+  <Project Path="E:/Code/_Test/TreeGrowth2/TreeFLip/TreeFlip.csproj" />
+  <Project Path="E:/Code/_Test/TreeGrowth2/TreeFlip2/TreeFlip2.csproj" Id="b021557b-8b57-4525-b5fe-40b5faf4f7ee" />
+  <Project Path="E:/Code/_Test/TreeGrowth2/TreeGrowth.Avalonia/TreeGrowth.Avalonia.csproj" />
+  <Project Path="E:/Code/_Test/TreeGrowth2/TreeGrowth/TreeGrowth.csproj" />
 </Solution>

@@ -1,0 +1,365 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:TreeGrowth.Avalonia.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="800"
+        x:Class="TreeGrowth.Avalonia.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="Forest Fire Simulation - Cross-Platform (Avalonia + SkiaSharp)"
+        Width="1200" Height="800"
+        Background="#1a1a1a">
+
+    <Design.DataContext>
+        <vm:MainWindowViewModel/>
+    </Design.DataContext>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="300"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Simulation Display -->
+        <Border Grid.Column="0" Background="Black" Margin="10">
+            <Image Source="{Binding SimulationImage}" 
+                   Stretch="Uniform"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"/>
+        </Border>
+
+        <!-- Control Panel -->
+        <Border Grid.Column="1" Background="#2a2a2a" Padding="15" Margin="10">
+            <ScrollViewer>
+                <StackPanel Spacing="15">
+                    
+                    <!-- Title -->
+                    <TextBlock Text="Forest Fire Simulation" 
+                               FontSize="18" 
+                               FontWeight="Bold"
+                               Foreground="White"
+                               HorizontalAlignment="Center"/>
+
+                    <!-- Status -->
+                    <Border Background="#333" Padding="10" CornerRadius="5">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="{Binding StatusText}" 
+                                       FontSize="16" 
+                                       FontWeight="Bold"
+                                       Foreground="#4CAF50"
+                                       HorizontalAlignment="Center"/>
+                            <TextBlock Text="{Binding FpsText}" 
+                                       FontSize="14" 
+                                       Foreground="#FFC107"
+                                       HorizontalAlignment="Center"/>
+                            <TextBlock Text="{Binding StatsText}" 
+                                       FontSize="12" 
+                                       Foreground="#BBB"
+                                       TextWrapping="Wrap"
+                                       HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Controls -->
+                    <Border Background="#333" Padding="10" CornerRadius="5">
+                        <StackPanel Spacing="10">
+                            <TextBlock Text="Controls" 
+                                       FontSize="14" 
+                                       FontWeight="Bold"
+                                       Foreground="White"/>
+                            
+                            <Button Content="Start / Stop"
+                                    Command="{Binding ToggleSimulationCommand}"
+                                    HorizontalAlignment="Stretch"
+                                    Background="#4CAF50"
+                                    Foreground="White"
+                                    Padding="10,8"
+                                    CornerRadius="5"/>
+
+                            <Button Content="Reset Simulation"
+                                    Command="{Binding ResetSimulationCommand}"
+                                    HorizontalAlignment="Stretch"
+                                    Background="#FF5722"
+                                    Foreground="White"
+                                    Padding="10,8"
+                                    CornerRadius="5"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Parameters -->
+                    <Border Background="#333" Padding="10" CornerRadius="5">
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="Parameters" 
+                                       FontSize="14" 
+                                       FontWeight="Bold"
+                                       Foreground="White"/>
+
+                            <!-- Tree Growth (p) -->
+                            <StackPanel Spacing="5">
+                                <TextBlock Text="{Binding TreeGrowth, StringFormat='Tree Growth (p): {0:F4}'}" 
+                                           Foreground="#BBB" 
+                                           FontSize="12"/>
+                                <Slider Minimum="0" 
+                                        Maximum="0.2" 
+                                        Value="{Binding TreeGrowth}"
+                                        TickFrequency="0.001"
+                                        IsSnapToTickEnabled="False"/>
+                            </StackPanel>
+
+                            <!-- Lightning (f) -->
+                            <StackPanel Spacing="5">
+                                <TextBlock Text="{Binding Lightning, StringFormat='Lightning (f): {0:E2}'}" 
+                                           Foreground="#BBB" 
+                                           FontSize="12"/>
+                                <Slider Minimum="0.0000001" 
+                                        Maximum="0.00001" 
+                                        Value="{Binding Lightning}"
+                                        IsSnapToTickEnabled="False"/>
+                            </StackPanel>
+
+                            <!-- Steps Per Frame -->
+                            <StackPanel Spacing="5">
+                                <TextBlock Text="{Binding StepsPerFrame, StringFormat='Steps/Frame: {0:N0}'}" 
+                                           Foreground="#BBB" 
+                                           FontSize="12"/>
+                                <Slider Minimum="100" 
+                                        Maximum="10000" 
+                                        Value="{Binding StepsPerFrame}"
+                                        TickFrequency="100"
+                                        IsSnapToTickEnabled="True"/>
+                            </StackPanel>
+
+                            <!-- Seed -->
+                            <StackPanel Spacing="5">
+                                <TextBlock Text="Random Seed" 
+                                           Foreground="#BBB" 
+                                           FontSize="12"/>
+                                <TextBox Text="{Binding Seed}" 
+                                         Background="#444"
+                                         Foreground="White"
+                                         BorderBrush="#666"
+                                         Padding="8,5"/>
+                            </StackPanel>
+
+                            <Button Content="Apply Parameters"
+                                    Command="{Binding UpdateParametersCommand}"
+                                    HorizontalAlignment="Stretch"
+                                    Background="#2196F3"
+                                    Foreground="White"
+                                    Padding="10,8"
+                                    CornerRadius="5"
+                                    Margin="0,10,0,0"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Statistics -->
+                    <Border Background="#333" Padding="10" CornerRadius="5">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="Statistics" 
+                                       FontSize="14" 
+                                       FontWeight="Bold"
+                                       Foreground="White"/>
+                            
+                            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" 
+                                  ShowGridLines="False">
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Trees:" Foreground="#BBB" Margin="0,0,10,5"/>
+                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding TreeCount}" Foreground="White" HorizontalAlignment="Right" Margin="0,0,0,5"/>
+                                
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Density:" Foreground="#BBB" Margin="0,0,10,5"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Density, StringFormat={}{0:F2}%}" Foreground="White" HorizontalAlignment="Right" Margin="0,0,0,5"/>
+                                
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Total Fires:" Foreground="#BBB" Margin="0,0,10,5"/>
+                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding TotalFires}" Foreground="White" HorizontalAlignment="Right" Margin="0,0,0,5"/>
+                                
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Timesteps:" Foreground="#BBB" Margin="0,0,10,0"/>
+                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding Timesteps}" Foreground="White" HorizontalAlignment="Right"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Perlin Noise Distribution -->
+                    <Border Background="#333" Padding="10" CornerRadius="5">
+                        <StackPanel Spacing="12">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <TextBlock Text="?? Perlin Noise Distribution" 
+                                           FontSize="14" 
+                                           FontWeight="Bold"
+                                           Foreground="White"
+                                           VerticalAlignment="Center"/>
+                                <CheckBox IsChecked="{Binding UsePerlinNoise}"
+                                          VerticalAlignment="Center"/>
+                            </StackPanel>
+                            
+                            <TextBlock Text="Creates organic, patchy tree distribution patterns"
+                                       FontSize="10"
+                                       Foreground="#999"
+                                       TextWrapping="Wrap"
+                                       Margin="0,-5,0,5"/>
+
+                            <!-- Noise Scale -->
+                            <StackPanel Spacing="5" IsEnabled="{Binding UsePerlinNoise}">
+                                <TextBlock Text="{Binding NoiseScale, StringFormat='Scale: {0:F0} (patch size)'}" 
+                                           Foreground="#BBB" 
+                                           FontSize="12"/>
+                                <Slider Minimum="10" 
+                                        Maximum="200" 
+                                        Value="{Binding NoiseScale}"
+                                        TickFrequency="10"
+                                        IsSnapToTickEnabled="True"/>
+                            </StackPanel>
+
+                            <!-- Noise Octaves -->
+                            <StackPanel Spacing="5" IsEnabled="{Binding UsePerlinNoise}">
+                                <TextBlock Text="{Binding NoiseOctaves, StringFormat='Octaves: {0} (detail level)'}" 
+                                           Foreground="#BBB" 
+                                           FontSize="12"/>
+                                <Slider Minimum="1" 
+                                        Maximum="8" 
+                                        Value="{Binding NoiseOctaves}"
+                                        TickFrequency="1"
+                                        IsSnapToTickEnabled="True"/>
+                            </StackPanel>
+
+                            <!-- Noise Threshold -->
+                            <StackPanel Spacing="5" IsEnabled="{Binding UsePerlinNoise}">
+                                <TextBlock Text="{Binding NoiseThreshold, StringFormat='Threshold: {0:F2} (min density)'}" 
+                                           Foreground="#BBB" 
+                                           FontSize="12"/>
+                                <Slider Minimum="0" 
+                                        Maximum="1" 
+                                        Value="{Binding NoiseThreshold}"
+                                        TickFrequency="0.05"
+                                        IsSnapToTickEnabled="False"/>
+                            </StackPanel>
+
+                            <!-- Noise Strength -->
+                            <StackPanel Spacing="5" IsEnabled="{Binding UsePerlinNoise}">
+                                <TextBlock Text="{Binding NoiseStrength, StringFormat='Strength: {0:P0} (effect intensity)'}" 
+                                           Foreground="#BBB" 
+                                           FontSize="12"/>
+                                <Slider Minimum="0" 
+                                        Maximum="1" 
+                                        Value="{Binding NoiseStrength}"
+                                        TickFrequency="0.1"
+                                        IsSnapToTickEnabled="False"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Color Customization -->
+                    <Border Background="#333" Padding="10" CornerRadius="5">
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="?? Colors" 
+                                       FontSize="14" 
+                                       FontWeight="Bold"
+                                       Foreground="White"/>
+
+                            <!-- Color Presets -->
+                            <StackPanel Spacing="5">
+                                <TextBlock Text="Color Preset" 
+                                           Foreground="#BBB" 
+                                           FontSize="12"/>
+                                <ComboBox ItemsSource="{Binding ColorPresetNames}"
+                                          SelectedIndex="{Binding SelectedPresetIndex}"
+                                          HorizontalAlignment="Stretch"/>
+                            </StackPanel>
+
+                            <Button Content="Apply Preset"
+                                    Command="{Binding ApplyColorPresetCommand}"
+                                    HorizontalAlignment="Stretch"
+                                    Background="#9C27B0"
+                                    Foreground="White"
+                                    Padding="10,8"
+                                    CornerRadius="5"/>
+
+                            <!-- Tree Color -->
+                            <StackPanel Spacing="5">
+                                <TextBlock Text="Tree Color" 
+                                           Foreground="#BBB" 
+                                           FontSize="12"/>
+                                <Border Background="{Binding TreeColor}" 
+                                        Height="30" 
+                                        CornerRadius="5"
+                                        BorderBrush="#555"
+                                        BorderThickness="1"/>
+                                <ColorPicker Color="{Binding TreeColor}" 
+                                            HorizontalAlignment="Stretch"/>
+                            </StackPanel>
+
+                            <!-- Vacant Color -->
+                            <StackPanel Spacing="5">
+                                <TextBlock Text="Vacant Color" 
+                                           Foreground="#BBB" 
+                                           FontSize="12"/>
+                                <Border Background="{Binding VacantColor}" 
+                                        Height="30" 
+                                        CornerRadius="5"
+                                        BorderBrush="#555"
+                                        BorderThickness="1"/>
+                                <ColorPicker Color="{Binding VacantColor}" 
+                                            HorizontalAlignment="Stretch"/>
+                            </StackPanel>
+
+                            <!-- Fire Color -->
+                            <StackPanel Spacing="5">
+                                <TextBlock Text="Fire Color" 
+                                           Foreground="#BBB" 
+                                           FontSize="12"/>
+                                <Border Background="{Binding FireColor}" 
+                                        Height="30" 
+                                        CornerRadius="5"
+                                        BorderBrush="#555"
+                                        BorderThickness="1"/>
+                                <ColorPicker Color="{Binding FireColor}" 
+                                            HorizontalAlignment="Stretch"/>
+                            </StackPanel>
+
+                            <!-- Burnout Color -->
+                            <StackPanel Spacing="5">
+                                <TextBlock Text="Burnout Color" 
+                                           Foreground="#BBB" 
+                                           FontSize="12"/>
+                                <Border Background="{Binding BurnoutColor}" 
+                                        Height="30" 
+                                        CornerRadius="5"
+                                        BorderBrush="#555"
+                                        BorderThickness="1"/>
+                                <ColorPicker Color="{Binding BurnoutColor}" 
+                                            HorizontalAlignment="Stretch"/>
+                            </StackPanel>
+
+                            <Button Content="Apply Colors"
+                                    Command="{Binding UpdateColorsCommand}"
+                                    HorizontalAlignment="Stretch"
+                                    Background="#2196F3"
+                                    Foreground="White"
+                                    Padding="10,8"
+                                    CornerRadius="5"
+                                    Margin="0,10,0,0"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Platform Info -->
+                    <Border Background="#333" Padding="10" CornerRadius="5">
+                        <StackPanel Spacing="5">
+                            <TextBlock Text="? Cross-Platform Ready!" 
+                                       FontSize="12" 
+                                       FontWeight="Bold"
+                                       Foreground="#4CAF50"
+                                       HorizontalAlignment="Center"/>
+                            <TextBlock Text="Runs on Windows, macOS, and Linux" 
+                                       FontSize="10" 
+                                       Foreground="#BBB"
+                                       TextWrapping="Wrap"
+                                       HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+    </Grid>
+
+</Window>
